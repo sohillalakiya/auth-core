@@ -23,7 +23,7 @@ interface CachedMetadata {
  * In-memory cache for provider metadata
  * In a multi-instance deployment, this should be replaced with a distributed cache
  */
-let metadataCache: Map<string, CachedMetadata> = new Map();
+const metadataCache: Map<string, CachedMetadata> = new Map();
 
 /**
  * Constructs the discovery URL for a given issuer.

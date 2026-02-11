@@ -22,7 +22,7 @@ interface CachedJWKS {
  * In-memory cache for JWKS
  * In a multi-instance deployment, this should be replaced with a distributed cache
  */
-let jwksCache: Map<string, CachedJWKS> = new Map();
+const jwksCache: Map<string, CachedJWKS> = new Map();
 
 /**
  * Fetches the JWKS from the given URL.
