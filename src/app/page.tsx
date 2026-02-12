@@ -3,7 +3,7 @@ const phases = [
   { phase: 1, name: 'Core Configuration & Setup', status: 'complete' },
   { phase: 2, name: 'PKCE Implementation (RFC 7636)', status: 'complete' },
   { phase: 3, name: 'OIDC Provider Discovery & JWKS', status: 'complete' },
-  { phase: 4, name: 'Authorization Flow', status: 'pending' },
+  { phase: 4, name: 'Authorization Flow', status: 'complete' },
   { phase: 5, name: 'Callback Handler', status: 'pending' },
   { phase: 6, name: 'ID Token Validation', status: 'pending' },
   { phase: 7, name: 'Session Management', status: 'pending' },
@@ -125,7 +125,7 @@ export default function Home() {
           </div>
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 text-center border border-zinc-200 dark:border-zinc-700">
             <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-              6
+              11
             </div>
             <div className="text-sm text-zinc-600 dark:text-zinc-400">Files Created</div>
           </div>
