@@ -138,3 +138,14 @@ export {
   getValidSession,
   type CookieOptions,
 } from './cookies';
+
+// Token Exchange
+export {
+  exchangeAuthorizationCode,
+  isTokenExpired,
+  getTokenExpirationTime,
+  isValidTokenResponse,
+  TokenExchangeError,
+  type TokenRequestOptions,
+  type TokenErrorResponse,
+} from './tokens';

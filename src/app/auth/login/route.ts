@@ -98,8 +98,7 @@ export async function GET(request: Request) {
     const provider = await discoverProvider();
 
     // Generate PKCE code pair
-    const { code_verifier, code_challenge, code_challenge_method } =
-      generatePKCECodePair();
+    const { code_verifier } = generatePKCECodePair();
 
     // Generate state and nonce
     const state = generateState();

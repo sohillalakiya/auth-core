@@ -3,12 +3,12 @@
 ## Implementation Progress
 
 | Phase | Status | Description |
-|-------|--------|-------------|
+| ----- | ------ | ---------- |
 | Phase 1 | ✅ Complete | Core Configuration & Setup |
 | Phase 2 | ✅ Complete | PKCE Implementation (RFC 7636) |
 | Phase 3 | ✅ Complete | OIDC Provider Discovery & JWKS |
 | Phase 4 | ✅ Complete | Authorization Flow |
-| Phase 5 | ⏳ Pending | Callback Handler |
+| Phase 5 | ✅ Complete | Callback Handler |
 | Phase 6 | ⏳ Pending | ID Token Validation |
 | Phase 7 | ⏳ Pending | Session Management |
 | Phase 8 | ⏳ Pending | Protected Routes & Middleware |
@@ -20,7 +20,7 @@
 | Phase 14 | ⏳ Pending | Pages Implementation |
 | Phase 15 | ⏳ Pending | Testing Strategy |
 
-**Overall Progress**: 4 / 15 phases complete (27%)
+**Overall Progress**: 5 / 15 phases complete (33%)
 
 ---
 
@@ -33,7 +33,7 @@ This document outlines the complete implementation of OpenID Connect (OIDC) auth
 ## 1. Requirements Summary
 
 | Requirement | Description |
-|-------------|-------------|
+| ----------- | ----------- |
 | **OIDC Flow** | Authorization Code Flow with PKCE (RFC 7636) |
 | **Provider** | Provider-agnostic (custom OIDC provider compatible) |
 | **Scopes** | openid, profile, email |
@@ -52,7 +52,7 @@ This document outlines the complete implementation of OpenID Connect (OIDC) auth
 ## 2. Relevant RFC Standards and Specifications
 
 | Specification | Description | Relevance |
-|---------------|-------------|-----------|
+| ------------- | ----------- | -------- |
 | **RFC 6749** | OAuth 2.0 Authorization Framework | Base authorization flow |
 | **RFC 7636** | PKCE (Proof Key for Code Exchange) | Code exchange security |
 | **RFC 7519** | JSON Web Token (JWT) | Token format and validation |
@@ -70,7 +70,7 @@ This implementation uses a **stateless, cookie-based architecture**. No database
 ### 3.1 Storage Overview
 
 | Data | Storage Location | Duration | Purpose |
-|------|------------------|----------|---------|
+| ----- | ---------------- | -------- | ------- |
 | `code_verifier` | Encrypted HttpOnly Cookie | 10 minutes | PKCE verification during token exchange |
 | `state` | Encrypted HttpOnly Cookie | 10 minutes | CSRF protection during auth flow |
 | `nonce` | Encrypted HttpOnly Cookie | 10 minutes | ID token replay protection |
@@ -143,7 +143,7 @@ After successful authentication, a session cookie stores user data:
 ### 3.4 Security Benefits of This Approach
 
 | Benefit | Description |
-|---------|-------------|
+| ------- | ----------- |
 | **No Database** | Simpler deployment, no infrastructure overhead |
 | **Stateless** | Scales horizontally without shared session storage |
 | **Encrypted** | Cookie contents cannot be read or tampered with |
@@ -161,7 +161,7 @@ After successful authentication, a session cookie stores user data:
 The following environment variables will be configured:
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+| -------- | ----------- | ------ |
 | `OIDC_ISSUER` | OIDC Provider Issuer URL | <https://accounts.example.com> |
 | `OIDC_CLIENT_ID` | Client Identifier | my-nextjs-app |
 | `OIDC_CLIENT_SECRET` | Client Secret (optional for public clients) | secret-value |
@@ -196,7 +196,7 @@ Required endpoints to be discovered:
 The state parameter prevents Cross-Site Request Forgery attacks during the OAuth flow.
 
 | Aspect | Detail |
-|--------|--------|
+| ------ | ----- |
 | Generation | Cryptographically secure random string (32+ bytes) |
 | Storage | Encrypted cookie with code_verifier and nonce |
 | Sent to Provider | Yes - in authorization URL |
@@ -224,7 +224,7 @@ With state, the attacker cannot:
 The nonce parameter ensures the ID token received was created in response to our authentication request.
 
 | Aspect | Detail |
-|--------|--------|
+| ------ | ----- |
 | Generation | Cryptographically secure random string (32+ bytes) |
 | Storage | Encrypted cookie with state and code_verifier |
 | Sent to Provider | Yes - in authorization URL |
@@ -521,21 +521,36 @@ Step 3: Validate ID Token
 
 ---
 
-### Phase 5: Callback Handler
+### Phase 5: Callback Handler ✅ **COMPLETED**
 
-#### Task 5.1: Callback Route Handler
+> **Implementation Status**: All tasks in Phase 5 have been implemented.
+>
+> **Files Created**:
+> - `src/lib/oidc/tokens.ts` - Token exchange with PKCE verifier support
+> - `src/app/auth/callback/route.ts` - Callback route handler with state validation
+>
+> **Key Features**:
+> - Authorization code exchange with PKCE verifier
+> - Client authentication (client_secret_basic, client_secret_post, none)
+> - State parameter validation for CSRF protection
+> - Auth state expiration checking
+> - Session creation from token response
+> - Error handling with redirect to error page
+
+#### Task 5.1: Callback Route Handler ✅
 
 - Create `/auth/callback` route handler
 - Extract `code` and `state` from query parameters
 - Handle error responses from provider
 
-#### Task 5.2: State Validation
+#### Task 5.2: State Validation ✅
 
 - Validate state parameter matches stored value
-- Check state expiration
+- Check state expiration (10 minutes)
 - Reject if validation fails
+- Delete auth state cookie after validation
 
-#### Task 5.3: Authorization Code Exchange
+#### Task 5.3: Authorization Code Exchange ✅
 
 - Build token request to token endpoint
 - Include grant_type, code, redirect_uri
@@ -543,7 +558,7 @@ Step 3: Validate ID Token
 - Include code_verifier (PKCE)
 - Handle authentication (client_secret_basic, client_secret_post, or none)
 
-#### Task 5.4: Token Response Processing
+#### Task 5.4: Token Response Processing ✅
 
 - Extract access_token, refresh_token, id_token
 - Calculate token expiration
