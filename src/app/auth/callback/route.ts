@@ -6,8 +6,9 @@
  * 1. Extracts code and state from query parameters
  * 2. Validates state parameter (CSRF protection)
  * 3. Exchanges authorization code for tokens
- * 4. Processes token response and creates session
- * 5. Redirects to the original destination
+ * 4. Validates ID token (signature, claims, nonce)
+ * 5. Processes token response and creates session
+ * 6. Redirects to the original destination
  *
  * @see https://openid.net/specs/openid-connect-core-1_0.html#Authentication
  * @see https://www.rfc-editor.org/rfc/rfc6749#section-4.1.2
@@ -17,14 +18,15 @@ import { redirect } from 'next/navigation';
 import { getConfig } from '@/lib/oidc/env';
 import { discoverProvider } from '@/lib/oidc/discovery';
 import { exchangeAuthorizationCode, TokenExchangeError } from '@/lib/oidc/tokens';
+import { validateIDToken, type IDTokenValidationResult } from '@/lib/oidc/validation';
 import {
   getAuthStateCookie,
   deleteAuthStateCookie,
   setSessionCookie,
 } from '@/lib/oidc/cookies';
 import { validateStateMatch, isAuthStateValid } from '@/lib/oidc/state';
-import { ROUTES, TIME_CONSTANTS, AUTHORIZATION_ERROR_CODES } from '@/lib/oidc/constants';
-import type { TokenResponse } from '@/lib/oidc/types';
+import { ROUTES, TIME_CONSTANTS, AUTHORIZATION_ERROR_CODES, APP_ERROR_CODES } from '@/lib/oidc/constants';
+import type { TokenResponse, IDTokenClaims } from '@/lib/oidc/types';
 
 /**
  * Query parameters received from the OIDC provider callback
@@ -57,15 +59,19 @@ interface CallbackQueryParams {
 }
 
 /**
- * Creates a session from the token response.
+ * Creates a session from the validated token response.
  *
  * Extracts user information and tokens from the token response
  * to create the session data structure.
  *
  * @param tokens - The token response from the provider
+ * @param claims - The validated ID token claims
  * @returns Session data object
  */
-function createSessionFromTokens(tokens: TokenResponse): {
+function createSessionFromTokensAndClaims(
+  tokens: TokenResponse,
+  claims: IDTokenClaims
+): {
   sub: string;
   name: string;
   email: string;
@@ -81,23 +87,11 @@ function createSessionFromTokens(tokens: TokenResponse): {
   const now = Date.now();
   const config = getConfig();
 
-  // For now, we'll decode the basic info from the ID token
-  // Full validation happens in Phase 6
-  const idTokenClaims = decodeJWT(tokens.id_token);
-
-  // Extract claims with proper type assertions
-  const sub = (idTokenClaims.sub as string | undefined) || '';
-  const name = (idTokenClaims.name as string | undefined) ||
-               (idTokenClaims.preferred_username as string | undefined) ||
-               'Unknown';
-  const email = (idTokenClaims.email as string | undefined) || '';
-  const picture = idTokenClaims.picture as string | undefined;
-
   return {
-    sub,
-    name,
-    email,
-    picture,
+    sub: claims.sub,
+    name: claims.name || claims.preferred_username || 'Unknown',
+    email: claims.email || '',
+    picture: claims.picture,
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     id_token: tokens.id_token,
@@ -106,30 +100,6 @@ function createSessionFromTokens(tokens: TokenResponse): {
     created_at: now,
     updated_at: now,
   };
-}
-
-/**
- * Decodes a JWT without verifying the signature.
- *
- * This is a simple base64url decode of the payload.
- * Full verification happens in Phase 6.
- *
- * @param jwt - The JWT string
- * @returns Decoded payload
- */
-function decodeJWT(jwt: string): Record<string, unknown> {
-  const parts = jwt.split('.');
-  if (parts.length !== 3) {
-    throw new Error('Invalid JWT format');
-  }
-
-  // Decode the payload (middle part)
-  const payload = parts[1];
-  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-  const decoded = Buffer.from(padded, 'base64').toString('utf-8');
-
-  return JSON.parse(decoded);
 }
 
 /**
@@ -158,6 +128,18 @@ function validateCallbackParams(params: CallbackQueryParams): void {
   if (!params.state) {
     throw new Error('Missing state parameter in callback response');
   }
+}
+
+/**
+ * Handles ID token validation failure.
+ *
+ * @param result - The validation result
+ * @throws {Error} With appropriate error message
+ */
+function handleIDTokenValidationError(result: IDTokenValidationResult): never {
+  throw new Error(
+    result.error || 'ID token validation failed'
+  );
 }
 
 /**
@@ -232,8 +214,21 @@ export async function GET(request: Request) {
       tokenEndpoint: provider.token_endpoint,
     });
 
-    // Create session from tokens
-    const sessionData = createSessionFromTokens(tokens);
+    // Validate ID token (signature, claims, nonce)
+    const validationResult = await validateIDToken({
+      idToken: tokens.id_token,
+      nonce: authState.nonce,
+    });
+
+    if (!validationResult.valid) {
+      handleIDTokenValidationError(validationResult);
+    }
+
+    // Create session from validated tokens and claims
+    const sessionData = createSessionFromTokensAndClaims(
+      tokens,
+      validationResult.claims!
+    );
 
     // Delete the temporary auth state cookie
     await deleteAuthStateCookie();
@@ -267,6 +262,12 @@ export async function GET(request: Request) {
         errorUrl.searchParams.set('code', 'state_expired');
       } else if (errorMessage.includes('Missing authorization code')) {
         errorUrl.searchParams.set('code', AUTHORIZATION_ERROR_CODES.INVALID_REQUEST);
+      } else if (errorMessage.includes('nonce') || errorMessage.includes('replay')) {
+        errorUrl.searchParams.set('code', APP_ERROR_CODES.TOKEN_VALIDATION_ERROR);
+      } else if (errorMessage.includes('signature') || errorMessage.includes('JWT')) {
+        errorUrl.searchParams.set('code', APP_ERROR_CODES.TOKEN_VALIDATION_ERROR);
+      } else if (errorMessage.includes('issuer') || errorMessage.includes('audience')) {
+        errorUrl.searchParams.set('code', APP_ERROR_CODES.TOKEN_VALIDATION_ERROR);
       } else {
         errorUrl.searchParams.set('code', 'authorization_error');
       }
