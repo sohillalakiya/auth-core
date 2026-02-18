@@ -142,12 +142,14 @@ export {
 // Token Exchange
 export {
   exchangeAuthorizationCode,
+  refreshAccessToken,
   isTokenExpired,
   getTokenExpirationTime,
   isValidTokenResponse,
   TokenExchangeError,
   type TokenRequestOptions,
   type TokenErrorResponse,
+  type RefreshTokenRequestOptions,
 } from './tokens';
 
 // ID Token Validation
@@ -169,3 +171,18 @@ export {
   type IDTokenValidationResult,
   type IDTokenValidationOptions,
 } from './validation';
+
+// Session Management
+export {
+  getValidSessionWithRefresh,
+  refreshSessionTokens,
+  isSessionValid,
+  shouldRefreshSession,
+  getSessionExpirationTime,
+  getSessionAge,
+  getTimeSinceLastUpdate,
+  createSessionData,
+  destroySession,
+  updateSessionTokens,
+  type SessionRefreshResult,
+} from './session';
