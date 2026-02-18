@@ -326,3 +326,145 @@ export function isValidTokenResponse(response: unknown): response is TokenRespon
     (token.scope === undefined || typeof token.scope === 'string')
   );
 }
+
+/**
+ * Token refresh request parameters.
+ */
+export interface RefreshTokenRequestOptions {
+  /**
+   * The refresh token received from the provider
+   */
+  refreshToken: string;
+
+  /**
+   * Optional scope to request
+   */
+  scope?: string;
+
+  /**
+   * Optional client ID override
+   */
+  clientId?: string;
+
+  /**
+   * Optional client secret override
+   */
+  clientSecret?: string;
+
+  /**
+   * The token endpoint URL
+   */
+  tokenEndpoint?: string;
+}
+
+/**
+ * Builds the request body for token refresh.
+ *
+ * @param options - Refresh token request options
+ * @param config - OIDC environment configuration
+ * @returns URL-encoded request body string
+ */
+function buildRefreshTokenRequestBody(
+  options: RefreshTokenRequestOptions,
+  config: ReturnType<typeof getConfig>
+): string {
+  const params = new URLSearchParams();
+
+  // Required parameters
+  params.append(OIDC_PARAMS.GRANT_TYPE, GRANT_TYPES.REFRESH_TOKEN);
+  params.append('refresh_token', options.refreshToken);
+
+  // Client ID (always required for refresh)
+  params.append(OIDC_PARAMS.CLIENT_ID, options.clientId || config.clientId);
+
+  // Optional scope
+  if (options.scope) {
+    params.append(OIDC_PARAMS.SCOPE, options.scope);
+  }
+
+  // Client secret (if using post method)
+  if (options.clientSecret || config.clientSecret) {
+    params.append('client_secret', options.clientSecret || config.clientSecret!);
+  }
+
+  return params.toString();
+}
+
+/**
+ * Refreshes an access token using a refresh token.
+ *
+ * This function performs the token refresh request per RFC 6749 Section 6:
+ * - Uses the refresh_token grant type
+ * - Handles client authentication
+ * - Returns new access token and potentially new refresh token
+ *
+ * @param options - Refresh token request options
+ * @returns Token response with new access_token, possibly new refresh_token, etc.
+ * @throws {TokenExchangeError} If the refresh fails
+ * @throws {Error} If the request fails or response is invalid
+ *
+ * @example
+ * ```ts
+ * const tokens = await refreshAccessToken({
+ *   refreshToken: session.refresh_token,
+ * });
+ * console.log(tokens.access_token);
+ * ```
+ */
+export async function refreshAccessToken(
+  options: RefreshTokenRequestOptions
+): Promise<TokenResponse> {
+  const config = getConfig();
+
+  // Build request
+  const body = buildRefreshTokenRequestBody(options, config);
+  const headers = buildTokenRequestHeaders(
+    options.clientSecret || config.clientSecret,
+    options.clientId || config.clientId
+  );
+
+  const tokenEndpoint = options.tokenEndpoint || config.issuer + '/protocol/openid-connect/token';
+
+  try {
+    const response = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers,
+      body,
+      signal: AbortSignal.timeout(HTTP_CONSTANTS.REQUEST_TIMEOUT),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Token refresh failed: ${response.status} ${response.statusText}`;
+      try {
+        const errorData: TokenErrorResponse = await response.json();
+        errorMessage = errorData.error_description || `Token refresh failed: ${errorData.error}`;
+      } catch {
+        // Ignore JSON parse errors
+      }
+      throw new TokenExchangeError(errorMessage, 'refresh_failed');
+    }
+
+    const tokenResponse = await parseTokenResponse(response);
+
+    // Calculate expiration timestamp
+    if (tokenResponse.expires_in) {
+      const responseWithExpires = tokenResponse as TokenResponse & { expires_at?: number };
+      responseWithExpires.expires_at = calculateTokenExpiration(tokenResponse.expires_in);
+    }
+
+    return tokenResponse;
+  } catch (error) {
+    if (error instanceof TokenExchangeError) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Timeout while refreshing access token');
+      }
+      throw error;
+    }
+
+    throw new Error('Unknown error during token refresh');
+  }
+}
