@@ -8,7 +8,7 @@
 | Phase 2 | ✅ Complete | PKCE Implementation (RFC 7636) |
 | Phase 3 | ✅ Complete | OIDC Provider Discovery & JWKS |
 | Phase 4 | ✅ Complete | Authorization Flow |
-| Phase 5 | ⏳ Pending | Callback Handler |
+| Phase 5 | ✅ Complete | Callback Handler |
 | Phase 6 | ⏳ Pending | ID Token Validation |
 | Phase 7 | ⏳ Pending | Session Management |
 | Phase 8 | ⏳ Pending | Protected Routes & Middleware |
@@ -20,7 +20,7 @@
 | Phase 14 | ⏳ Pending | Pages Implementation |
 | Phase 15 | ⏳ Pending | Testing Strategy |
 
-**Overall Progress**: 4 / 15 phases complete (27%)
+**Overall Progress**: 5 / 15 phases complete (33%)
 
 ---
 
@@ -521,21 +521,36 @@ Step 3: Validate ID Token
 
 ---
 
-### Phase 5: Callback Handler
+### Phase 5: Callback Handler ✅ **COMPLETED**
 
-#### Task 5.1: Callback Route Handler
+> **Implementation Status**: All tasks in Phase 5 have been implemented.
+>
+> **Files Created**:
+> - `src/lib/oidc/tokens.ts` - Token exchange with PKCE verifier support
+> - `src/app/auth/callback/route.ts` - Callback route handler with state validation
+>
+> **Key Features**:
+> - Authorization code exchange with PKCE verifier
+> - Client authentication (client_secret_basic, client_secret_post, none)
+> - State parameter validation for CSRF protection
+> - Auth state expiration checking
+> - Session creation from token response
+> - Error handling with redirect to error page
+
+#### Task 5.1: Callback Route Handler ✅
 
 - Create `/auth/callback` route handler
 - Extract `code` and `state` from query parameters
 - Handle error responses from provider
 
-#### Task 5.2: State Validation
+#### Task 5.2: State Validation ✅
 
 - Validate state parameter matches stored value
-- Check state expiration
+- Check state expiration (10 minutes)
 - Reject if validation fails
+- Delete auth state cookie after validation
 
-#### Task 5.3: Authorization Code Exchange
+#### Task 5.3: Authorization Code Exchange ✅
 
 - Build token request to token endpoint
 - Include grant_type, code, redirect_uri
@@ -543,7 +558,7 @@ Step 3: Validate ID Token
 - Include code_verifier (PKCE)
 - Handle authentication (client_secret_basic, client_secret_post, or none)
 
-#### Task 5.4: Token Response Processing
+#### Task 5.4: Token Response Processing ✅
 
 - Extract access_token, refresh_token, id_token
 - Calculate token expiration
