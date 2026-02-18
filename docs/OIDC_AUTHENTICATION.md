@@ -3,7 +3,7 @@
 ## Implementation Progress
 
 | Phase | Status | Description |
-|-------|--------|-------------|
+| ----- | ------ | ---------- |
 | Phase 1 | ✅ Complete | Core Configuration & Setup |
 | Phase 2 | ✅ Complete | PKCE Implementation (RFC 7636) |
 | Phase 3 | ✅ Complete | OIDC Provider Discovery & JWKS |
@@ -33,7 +33,7 @@ This document outlines the complete implementation of OpenID Connect (OIDC) auth
 ## 1. Requirements Summary
 
 | Requirement | Description |
-|-------------|-------------|
+| ----------- | ----------- |
 | **OIDC Flow** | Authorization Code Flow with PKCE (RFC 7636) |
 | **Provider** | Provider-agnostic (custom OIDC provider compatible) |
 | **Scopes** | openid, profile, email |
@@ -52,7 +52,7 @@ This document outlines the complete implementation of OpenID Connect (OIDC) auth
 ## 2. Relevant RFC Standards and Specifications
 
 | Specification | Description | Relevance |
-|---------------|-------------|-----------|
+| ------------- | ----------- | -------- |
 | **RFC 6749** | OAuth 2.0 Authorization Framework | Base authorization flow |
 | **RFC 7636** | PKCE (Proof Key for Code Exchange) | Code exchange security |
 | **RFC 7519** | JSON Web Token (JWT) | Token format and validation |
@@ -70,7 +70,7 @@ This implementation uses a **stateless, cookie-based architecture**. No database
 ### 3.1 Storage Overview
 
 | Data | Storage Location | Duration | Purpose |
-|------|------------------|----------|---------|
+| ----- | ---------------- | -------- | ------- |
 | `code_verifier` | Encrypted HttpOnly Cookie | 10 minutes | PKCE verification during token exchange |
 | `state` | Encrypted HttpOnly Cookie | 10 minutes | CSRF protection during auth flow |
 | `nonce` | Encrypted HttpOnly Cookie | 10 minutes | ID token replay protection |
@@ -143,7 +143,7 @@ After successful authentication, a session cookie stores user data:
 ### 3.4 Security Benefits of This Approach
 
 | Benefit | Description |
-|---------|-------------|
+| ------- | ----------- |
 | **No Database** | Simpler deployment, no infrastructure overhead |
 | **Stateless** | Scales horizontally without shared session storage |
 | **Encrypted** | Cookie contents cannot be read or tampered with |
@@ -161,7 +161,7 @@ After successful authentication, a session cookie stores user data:
 The following environment variables will be configured:
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+| -------- | ----------- | ------ |
 | `OIDC_ISSUER` | OIDC Provider Issuer URL | <https://accounts.example.com> |
 | `OIDC_CLIENT_ID` | Client Identifier | my-nextjs-app |
 | `OIDC_CLIENT_SECRET` | Client Secret (optional for public clients) | secret-value |
@@ -196,7 +196,7 @@ Required endpoints to be discovered:
 The state parameter prevents Cross-Site Request Forgery attacks during the OAuth flow.
 
 | Aspect | Detail |
-|--------|--------|
+| ------ | ----- |
 | Generation | Cryptographically secure random string (32+ bytes) |
 | Storage | Encrypted cookie with code_verifier and nonce |
 | Sent to Provider | Yes - in authorization URL |
@@ -224,7 +224,7 @@ With state, the attacker cannot:
 The nonce parameter ensures the ID token received was created in response to our authentication request.
 
 | Aspect | Detail |
-|--------|--------|
+| ------ | ----- |
 | Generation | Cryptographically secure random string (32+ bytes) |
 | Storage | Encrypted cookie with state and code_verifier |
 | Sent to Provider | Yes - in authorization URL |

@@ -101,7 +101,7 @@ function createSessionFromTokens(tokens: TokenResponse): {
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     id_token: tokens.id_token,
-    expires_at: (tokens as any).expires_at || Date.now() + tokens.expires_in * 1000,
+    expires_at: (tokens as TokenResponse & { expires_at?: number }).expires_at || Date.now() + tokens.expires_in * 1000,
     provider: config.issuer,
     created_at: now,
     updated_at: now,

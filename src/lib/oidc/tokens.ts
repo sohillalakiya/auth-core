@@ -62,50 +62,6 @@ export interface TokenErrorResponse {
 }
 
 /**
- * Determines the client authentication method based on provider metadata and config.
- *
- * @param tokenEndpoint - The token endpoint URL
- * @param hasClientSecret - Whether a client secret is configured
- * @returns The authentication method to use
- */
-function determineClientAuthMethod(
-  tokenEndpoint: string,
-  hasClientSecret: boolean
-): 'client_secret_basic' | 'client_secret_post' | 'none' {
-  // Public client - no authentication
-  if (!hasClientSecret) {
-    return 'none';
-  }
-
-  // Confidential client - use client_secret_basic by default
-  // (Most providers support this)
-  return 'client_secret_basic';
-}
-
-/**
- * Determines if the provider supports a specific token endpoint auth method.
- *
- * This checks the provider's metadata to see if the specified auth method
- * is supported. If the provider doesn't advertise supported methods,
- * we assume the standard methods are supported.
- *
- * @param tokenEndpoint - The token endpoint URL
- * @param authMethod - The authentication method to check
- * @param supportedMethods - Array of supported auth methods from provider metadata
- * @returns true if the auth method is supported
- */
-function isAuthMethodSupported(
-  authMethod: string,
-  supportedMethods?: string[]
-): boolean {
-  if (!supportedMethods || supportedMethods.length === 0) {
-    // If provider doesn't advertise supported methods, assume standard methods work
-    return ['client_secret_basic', 'client_secret_post', 'none'].includes(authMethod);
-  }
-  return supportedMethods.includes(authMethod);
-}
-
-/**
  * Builds the request body for token exchange.
  *
  * Creates the form-encoded request body with all required parameters
@@ -287,7 +243,8 @@ export async function exchangeAuthorizationCode(
     // Calculate expiration timestamp
     if (tokenResponse.expires_in) {
       // We'll add expires_at as a convenience field
-      (tokenResponse as any).expires_at = calculateTokenExpiration(tokenResponse.expires_in);
+      const responseWithExpires = tokenResponse as TokenResponse & { expires_at?: number };
+      responseWithExpires.expires_at = calculateTokenExpiration(tokenResponse.expires_in);
     }
 
     return tokenResponse;

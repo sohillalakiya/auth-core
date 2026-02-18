@@ -11,7 +11,6 @@ import { cookies } from 'next/headers';
 import type { AuthState, SessionData } from './types';
 import {
   COOKIE_NAMES,
-  COOKIE_CONFIG,
   TIME_CONSTANTS,
 } from './constants';
 

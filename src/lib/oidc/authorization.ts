@@ -9,7 +9,7 @@
  */
 
 import type { OpenIDProviderMetadata, AuthorizationRequestParams } from './types';
-import { OIDC_PARAMS, RESPONSE_TYPES, PROMPT_VALUES } from './constants';
+import { RESPONSE_TYPES, PROMPT_VALUES } from './constants';
 import { createCodeChallengeForRequest } from './pkce';
 
 /**
