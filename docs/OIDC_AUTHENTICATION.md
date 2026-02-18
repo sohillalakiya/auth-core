@@ -9,7 +9,8 @@
 | Phase 3 | ✅ Complete | OIDC Provider Discovery & JWKS |
 | Phase 4 | ✅ Complete | Authorization Flow |
 | Phase 5 | ✅ Complete | Callback Handler |
-| Phase 6 | ⏳ Pending | ID Token Validation |
+| Phase 6 | ✅ Complete | ID Token Validation |
+| Phase 7 | ⏳ Pending | Session Management |
 | Phase 7 | ⏳ Pending | Session Management |
 | Phase 8 | ⏳ Pending | Protected Routes & Middleware |
 | Phase 9 | ⏳ Pending | Logout Implementation |
@@ -20,7 +21,7 @@
 | Phase 14 | ⏳ Pending | Pages Implementation |
 | Phase 15 | ⏳ Pending | Testing Strategy |
 
-**Overall Progress**: 5 / 15 phases complete (33%)
+**Overall Progress**: 6 / 15 phases complete (40%)
 
 ---
 
@@ -566,14 +567,35 @@ Step 3: Validate ID Token
 
 ---
 
-### Phase 6: ID Token Validation (RFC 7519)
+### Phase 6: ID Token Validation (RFC 7519) ✅ **COMPLETED**
 
-#### Task 6.1: ID Token Structure Validation
+> **Implementation Status**: All tasks in Phase 6 have been implemented.
+>
+> **Files Created**:
+> - `src/lib/oidc/validation.ts` - Complete ID token validation with JWT signature verification
+>
+> **Files Modified**:
+> - `src/app/auth/callback/route.ts` - Updated to use full ID token validation
+> - `src/lib/oidc/index.ts` - Exported validation functions
+>
+> **Key Features**:
+> - JWT header validation (algorithm checking, rejects 'none')
+> - JWT signature verification using RSA keys from JWKS
+> - Required claims validation (iss, sub, aud, exp, iat)
+> - Issuer validation with trailing slash handling
+> - Audience validation (single and multiple audiences)
+> - Expiration validation with clock skew tolerance
+> - Issued at validation (future token detection)
+> - Nonce validation (replay attack prevention)
+> - Authorized party (azp) validation for third-party tokens
+> - Authentication time (auth_time) validation against max_age
+
+#### Task 6.1: ID Token Structure Validation ✅
 
 - Verify JWT format (header.payload.signature)
 - Extract claims from ID token
 
-#### Task 6.2: Required Claims Validation
+#### Task 6.2: Required Claims Validation ✅
 
 Validate all required claims per OpenID Connect Core:
 
@@ -584,19 +606,19 @@ Validate all required claims per OpenID Connect Core:
 - `iat` (issued at) - valid timestamp
 - `nonce` - matches stored nonce (if sent)
 
-#### Task 6.3: JWT Signature Validation
+#### Task 6.3: JWT Signature Validation ✅
 
 - Fetch JWKS from provider
 - Match key ID (kid) from token header
 - Verify signature using RS256 (or provider algorithm)
 - Reject unsupported algorithms (none)
 
-#### Task 6.4: Token Issuer Validation
+#### Task 6.4: Token Issuer Validation ✅
 
 - Validate issuer matches configured issuer URL
 - Handle issuer URL variations (trailing slash)
 
-#### Task 6.5: Audience Validation
+#### Task 6.5: Audience Validation ✅
 
 - Validate audience includes client_id
 - Handle azp (authorized party) for third-party tokens

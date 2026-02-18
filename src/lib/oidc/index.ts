@@ -149,3 +149,23 @@ export {
   type TokenRequestOptions,
   type TokenErrorResponse,
 } from './tokens';
+
+// ID Token Validation
+export {
+  decodeJWTHeader,
+  decodeJWTPayload,
+  decodeJWT,
+  validateJWTHeader,
+  validateRequiredClaims,
+  validateIssuer,
+  validateAudience,
+  validateExpiration,
+  validateIssuedAt,
+  validateNonce,
+  validateAuthTime,
+  validateAuthorizedParty,
+  verifyJWTSignature,
+  validateIDToken,
+  type IDTokenValidationResult,
+  type IDTokenValidationOptions,
+} from './validation';
