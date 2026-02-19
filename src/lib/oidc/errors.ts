@@ -235,7 +235,7 @@ export function isRecoverableError(code: string): boolean {
     'temporarily_unavailable',
   ];
 
-  return recoverableErrors.includes(code as any);
+  return recoverableErrors.includes(code as 'temporarily_unavailable' | 'server_error');
 }
 
 /**

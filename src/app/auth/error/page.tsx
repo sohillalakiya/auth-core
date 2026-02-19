@@ -138,16 +138,13 @@ function formatErrorForDisplay(code: string, description: string): {
   suggestion: string;
 } {
   const recoverableErrors = ['temporarily_unavailable', 'server_error'];
-  const clientErrors = ['access_denied', 'invalid_request', 'invalid_scope'];
-  const authErrors = ['state_mismatch', 'state_expired', 'token_validation_error'];
-
   const canRetry = recoverableErrors.includes(code);
-  const isClientError = clientErrors.includes(code) || authErrors.includes(code);
 
   let title = 'Authentication Error';
   let message = description;
   let suggestion = 'Please try again or contact support.';
 
+  // Determine title and suggestion based on error code
   if (code === 'access_denied') {
     title = 'Access Denied';
     suggestion =
