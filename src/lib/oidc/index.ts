@@ -186,3 +186,15 @@ export {
   updateSessionTokens,
   type SessionRefreshResult,
 } from './session';
+
+// Logout Management
+export {
+  buildLogoutUrl,
+  createLogoutRequest,
+  validateLogoutCallback,
+  parseLogoutCallback,
+  prepareLogout,
+  localLogout,
+  type LogoutRequestOptions,
+  type LogoutState,
+} from './logout';
