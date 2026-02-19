@@ -256,3 +256,46 @@ export function updateSessionTokens(
     updated_at: now,
   };
 }
+
+/**
+ * Gets the current session from the session cookie.
+ *
+ * This is a reusable function for Server Components to retrieve
+ * the authenticated user's session data. It validates that the
+ * session exists and has not expired.
+ *
+ * @returns The session data or undefined if not authenticated or session is invalid
+ *
+ * @example
+ * ```ts
+ * // In any Server Component
+ * import { getSession } from '@/lib/oidc/session';
+ *
+ * export default async function MyPage() {
+ *   const session = await getSession();
+ *   if (!session) {
+ *     redirect('/auth/login');
+ *   }
+ *   // Use session...
+ * }
+ * ```
+ */
+export async function getSession(): Promise<SessionData | undefined> {
+  const sessionCookie = await getSessionCookie();
+
+  if (!sessionCookie) {
+    return undefined;
+  }
+
+  // Validate session has required fields
+  if (!sessionCookie.sub || !sessionCookie.access_token || !sessionCookie.expires_at) {
+    return undefined;
+  }
+
+  // Check if session is expired
+  if (sessionCookie.expires_at < Date.now()) {
+    return undefined;
+  }
+
+  return sessionCookie;
+}
