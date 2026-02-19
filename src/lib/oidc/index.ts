@@ -198,3 +198,13 @@ export {
   type LogoutRequestOptions,
   type LogoutState,
 } from './logout';
+
+// UserInfo Endpoint
+export {
+  fetchUserInfo,
+  getUserInfo,
+  clearUserInfoCache,
+  clearAllUserInfoCache,
+  getUserInfoForSession,
+  enrichSessionWithUserInfo,
+} from './userinfo';
