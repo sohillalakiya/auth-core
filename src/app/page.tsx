@@ -11,7 +11,7 @@ const phases = [
   { phase: 9, name: 'Logout Implementation', status: 'complete' },
   { phase: 10, name: 'UserInfo Endpoint', status: 'complete' },
   { phase: 11, name: 'Error Handling', status: 'complete' },
-  { phase: 12, name: 'Security Considerations', status: 'pending' },
+  { phase: 12, name: 'Security Considerations', status: 'complete' },
   { phase: 13, name: 'Next.js 16 Best Practices', status: 'pending' },
   { phase: 14, name: 'Pages Implementation', status: 'pending' },
   { phase: 15, name: 'Testing Strategy', status: 'pending' },
