@@ -208,3 +208,17 @@ export {
   getUserInfoForSession,
   enrichSessionWithUserInfo,
 } from './userinfo';
+
+// Error Handling
+export {
+  getErrorMessage,
+  createAuthError,
+  handleAuthError,
+  redactSensitiveData,
+  logAuthError,
+  getHttpStatusForError,
+  isRecoverableError,
+  isClientError,
+  formatErrorForPage,
+  type AuthError,
+} from './errors';
