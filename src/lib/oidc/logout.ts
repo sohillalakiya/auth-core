@@ -122,7 +122,7 @@ export function createLogoutRequest(
   const state = generateState();
 
   // Use configured post-logout redirect URI if not provided
-  const redirectUri = postLogoutRedirectUri || config.postLogoutRedirectUri;
+  const _redirectUri = postLogoutRedirectUri || config.postLogoutRedirectUri;
 
   return {
     state,

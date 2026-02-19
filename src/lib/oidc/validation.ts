@@ -353,14 +353,6 @@ export function validateAuthorizedParty(
  */
 export function jwkToPem(jwk: { kty: string; n?: string; e?: string; x?: string; y?: string; crv?: string }): string {
   if (jwk.kty === 'RSA' && jwk.n && jwk.e) {
-    // RSA key
-    const modulus = Buffer.from(jwk.n, 'base64url').toString('base64');
-    const exponent = Buffer.from(jwk.e, 'base64url').toString('base64');
-
-    const pem = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA${modulus}${exponent}
------END PUBLIC KEY-----`;
-
     // This is a simplified version - for production, use proper key formatting
     // For now, we'll use Node's crypto module which can handle base64url directly
     return `-----BEGIN RSA PUBLIC KEY-----
