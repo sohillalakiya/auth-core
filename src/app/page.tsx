@@ -7,7 +7,7 @@ const phases = [
   { phase: 5, name: 'Callback Handler', status: 'complete' },
   { phase: 6, name: 'ID Token Validation', status: 'complete' },
   { phase: 7, name: 'Session Management', status: 'complete' },
-  { phase: 8, name: 'Protected Routes & Middleware', status: 'pending' },
+  { phase: 8, name: 'Protected Routes & Middleware', status: 'complete' },
   { phase: 9, name: 'Logout Implementation', status: 'pending' },
   { phase: 10, name: 'UserInfo Endpoint', status: 'pending' },
   { phase: 11, name: 'Error Handling', status: 'pending' },
