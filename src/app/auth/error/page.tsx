@@ -24,15 +24,18 @@ import { ROUTES } from '@/lib/oidc/constants';
  * redirect('/auth/error?code=access_denied&description=User denied access');
  * ```
  */
-export default function AuthErrorPage({
+export default async function AuthErrorPage({
   searchParams,
 }: {
-  searchParams: { code?: string; error?: string; description?: string; error_uri?: string };
+  searchParams: Promise<{ code?: string; error?: string; description?: string; error_uri?: string }>;
 }) {
+  // In Next.js 15+, searchParams is a Promise that must be awaited
+  const params = await searchParams;
+
   // Get error code from query params (prefer 'code', fallback to 'error')
-  const errorCode = searchParams.code || searchParams.error || 'unknown_error';
-  const errorDescription = searchParams.description || 'An unknown error occurred.';
-  const errorUri = searchParams.error_uri;
+  const errorCode = params.code || params.error || 'unknown_error';
+  const errorDescription = params.description || 'An unknown error occurred.';
+  const errorUri = params.error_uri;
 
   // Format the error for display
   const error = formatErrorForDisplay(errorCode, errorDescription);

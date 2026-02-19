@@ -240,6 +240,17 @@ export async function GET(request: Request) {
     const destination = authState.redirect_uri || ROUTES.USER;
     return redirect(destination);
   } catch (error) {
+    // Next.js redirect() throws a NEXT_REDIRECT error that must be re-thrown
+    if (
+      error &&
+      typeof error === 'object' &&
+      'digest' in error &&
+      typeof error.digest === 'string' &&
+      error.digest.startsWith('NEXT_REDIRECT')
+    ) {
+      throw error;
+    }
+
     // Log error for debugging
     console.error('Error in callback handler:', error);
 
