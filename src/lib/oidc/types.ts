@@ -155,6 +155,7 @@ export interface IDTokenClaims {
   azp?: string; // Authorized party
   at_hash?: string; // Access token hash
   c_hash?: string; // Code hash
+  sid?: string; // Session ID - for back-channel logout
 
   // Standard user claims (may be included)
   name?: string;
@@ -353,6 +354,9 @@ export interface SessionData {
   provider: string; // Issuer identifier
   created_at: number; // Session creation timestamp
   updated_at: number; // Last update timestamp
+
+  // Back-channel logout
+  sid?: string; // Session ID for backchannel logout (optional for legacy sessions)
 }
 
 /**
@@ -451,6 +455,109 @@ export interface LogoutRequestParams {
   id_token_hint: string;
   post_logout_redirect_uri?: string;
   state?: string;
+}
+
+// =============================================================================
+// Back-Channel Logout Types
+// =============================================================================
+
+/**
+ * Logout Token Claims
+ *
+ * Claims in a logout token per OpenID Connect Back-Channel Logout 1.0.
+ * The logout token is a signed JWT sent by the OP to notify the RP of a logout event.
+ *
+ * @see https://openid.net/specs/openid-connect-backchannel-1_0.html#LogoutToken
+ */
+export interface LogoutTokenClaims {
+  /** Issuer - must match the OP's issuer */
+  iss: string;
+  /** Audience - must include the client_id */
+  aud: string | string[];
+  /** Issued at time */
+  iat: number;
+  /** JWT ID - unique identifier for replay protection */
+  jti: string;
+  /** Events claim - must contain backchannel-logout event URI */
+  events: LogoutEvents;
+  /** Subject - user identifier (optional if sid is present) */
+  sub?: string;
+  /** Session ID - for session-specific logout (optional) */
+  sid?: string;
+  /** Expiration time (optional) */
+  exp?: number;
+}
+
+/**
+ * Logout Events Claim
+ *
+ * Must contain the backchannel-logout event URI.
+ *
+ * @see https://openid.net/specs/openid-connect-backchannel-1_0.html#LogoutToken
+ */
+export interface LogoutEvents {
+  [key: string]: Record<string, never> | undefined;
+  /** Backchannel logout event URI - presence indicates this is a logout token */
+  'https://schemas.openid.net/event/backchannel-logout'?: Record<string, never>;
+}
+
+/**
+ * Session Registry Entry
+ *
+ * Represents a session tracked in the session registry for back-channel logout.
+ */
+export interface SessionRegistryEntry {
+  /** Subject (user ID) */
+  sub: string;
+  /** Session ID - unique identifier for this session */
+  sid: string;
+  /** Provider/issuer URL */
+  provider: string;
+  /** Session creation timestamp (ms) */
+  createdAt: number;
+  /** Session expiration timestamp (ms) */
+  expiresAt: number;
+  /** Whether session was invalidated via backchannel logout */
+  invalidated?: boolean;
+  /** When session was invalidated (ms) */
+  invalidatedAt?: number;
+}
+
+/**
+ * Session Registry Storage Interface
+ *
+ * Abstract interface for session registry storage backends.
+ * Implemented by RedisSessionRegistry.
+ */
+export interface SessionRegistryStorage {
+  /** Register a new session */
+  register(entry: SessionRegistryEntry): Promise<void>;
+  /** Invalidate a specific session by session ID */
+  invalidateBySid(sid: string): Promise<number>;
+  /** Invalidate all sessions for a subject (user) */
+  invalidateBySub(sub: string, provider?: string): Promise<number>;
+  /** Check if a session is valid (not invalidated) */
+  isValid(sid: string): Promise<boolean>;
+  /** Clean up expired entries */
+  cleanup(): Promise<number>;
+  /** Check if a JTI (JWT ID) has been used (replay protection) */
+  isJtiUsed(jti: string): Promise<boolean>;
+  /** Mark a JTI as used to prevent replay attacks */
+  markJtiUsed(jti: string, expiresAt: number): Promise<void>;
+}
+
+/**
+ * Logout Token Validation Result
+ *
+ * Result of validating a logout token.
+ */
+export interface LogoutTokenValidationResult {
+  /** Whether the logout token is valid */
+  valid: boolean;
+  /** The validated logout token claims (if valid) */
+  claims?: LogoutTokenClaims;
+  /** Error message (if invalid) */
+  error?: string;
 }
 
 // =============================================================================

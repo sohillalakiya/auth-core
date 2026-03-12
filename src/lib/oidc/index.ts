@@ -28,6 +28,11 @@ export type {
   JWTHeader,
   JWTPayload,
   LogoutRequestParams,
+  LogoutTokenClaims,
+  LogoutEvents,
+  LogoutTokenValidationResult,
+  SessionRegistryEntry,
+  SessionRegistryStorage,
 } from './types';
 
 // Error Classes
@@ -69,6 +74,8 @@ export {
   HTTP_CONSTANTS,
   ROUTES,
   VALIDATION_PATTERNS,
+  BACKCHANNEL_LOGOUT_EVENT_URI,
+  SESSION_REGISTRY,
 } from './constants';
 
 // PKCE Implementation
@@ -101,6 +108,9 @@ export {
   getEndSessionEndpoint,
   getIntrospectionEndpoint,
   discoverProvider,
+  supportsBackchannelLogout as supportsDiscoveryBackchannelLogout,
+  supportsBackchannelLogoutSession,
+  getBackchannelLogoutUri as getDiscoveryBackchannelLogoutUri,
 } from './discovery';
 
 // State & Nonce Management
@@ -198,6 +208,25 @@ export {
   type LogoutRequestOptions,
   type LogoutState,
 } from './logout';
+
+// Session Registry
+export {
+  getSessionRegistry,
+  getSessionRegistrySafe,
+  isSessionRegistryAvailable,
+  generateSessionId,
+  RedisSessionRegistry,
+} from './session-registry';
+
+// Back-Channel Logout
+export {
+  validateLogoutToken,
+  processLogout,
+  supportsBackchannelLogout as supportsProviderBackchannelLogout,
+  getBackchannelLogoutUri,
+  type LogoutTokenValidationOptions,
+  type LogoutProcessResult,
+} from './backchannel-logout';
 
 // UserInfo Endpoint
 export {

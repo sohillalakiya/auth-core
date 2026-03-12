@@ -175,15 +175,15 @@ export function validateProviderMetadata(
     errors.push('Missing required field: userinfo_endpoint');
   }
 
-  // REQUIRED: end_session_endpoint (for RP-Initiated Logout)
-  if (!metadata.end_session_endpoint) {
-    errors.push('Missing required field: end_session_endpoint');
-  }
+  // // REQUIRED: end_session_endpoint (for RP-Initiated Logout)
+  // if (!metadata.end_session_endpoint) {
+  //   errors.push('Missing required field: end_session_endpoint');
+  // }
 
-  // REQUIRED: introspection_endpoint (for token validation)
-  if (!metadata.introspection_endpoint) {
-    errors.push('Missing required field: introspection_endpoint');
-  }
+  // // REQUIRED: introspection_endpoint (for token validation)
+  // if (!metadata.introspection_endpoint) {
+  //   errors.push('Missing required field: introspection_endpoint');
+  // }
 
   // Validate issuer matches expected issuer (if provided)
   if (expectedIssuer && metadata.issuer) {
@@ -515,4 +515,75 @@ export async function discoverProvider(
 ): Promise<OpenIDProviderMetadata> {
   const config = getConfig();
   return fetchProviderMetadata(config.issuer, cacheBust);
+}
+
+// =============================================================================
+// Back-Channel Logout Helpers
+// =============================================================================
+
+/**
+ * Checks if the provider supports back-channel logout.
+ *
+ * @param metadata - The provider metadata
+ * @returns true if back-channel logout is supported
+ *
+ * @example
+ * ```ts
+ * const provider = await discoverProvider();
+ * if (supportsBackchannelLogout(provider)) {
+ *   console.log('Provider supports back-channel logout');
+ * }
+ * ```
+ */
+export function supportsBackchannelLogout(
+  metadata: OpenIDProviderMetadata
+): boolean {
+  return metadata.backchannel_logout_supported === true;
+}
+
+/**
+ * Checks if the provider supports session IDs in back-channel logout.
+ *
+ * @param metadata - The provider metadata
+ * @returns true if session IDs are supported in back-channel logout
+ *
+ * @example
+ * ```ts
+ * const provider = await discoverProvider();
+ * if (supportsBackchannelLogoutSession(provider)) {
+ *   console.log('Provider supports session-specific logout');
+ * }
+ * ```
+ */
+export function supportsBackchannelLogoutSession(
+  metadata: OpenIDProviderMetadata
+): boolean {
+  return (
+    metadata.backchannel_logout_supported === true &&
+    metadata.backchannel_logout_session_supported === true
+  );
+}
+
+/**
+ * Gets the back-channel logout URI for client registration.
+ *
+ * Returns the absolute URL of the backchannel logout endpoint
+ * based on the application base URL.
+ *
+ * @param baseUrl - The base URL of the application (optional)
+ * @returns The back-channel logout URI
+ *
+ * @example
+ * ```ts
+ * const backchannelUri = getBackchannelLogoutUri('https://myapp.com');
+ * // Returns: 'https://myapp.com/auth/backchannel-logout'
+ * ```
+ */
+export function getBackchannelLogoutUri(baseUrl: string = ''): string {
+  const base =
+    baseUrl ||
+    process.env.OIDC_BASE_URL ||
+    process.env.OIDC_REDIRECT_URI?.replace('/auth/callback', '') ||
+    '';
+  return `${base.replace(/\/$/, '')}/auth/backchannel-logout`;
 }

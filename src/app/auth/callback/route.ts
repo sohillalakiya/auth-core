@@ -26,6 +26,7 @@ import {
 } from '@/lib/oidc/cookies';
 import { validateStateMatch, isAuthStateValid } from '@/lib/oidc/state';
 import { ROUTES, TIME_CONSTANTS, AUTHORIZATION_ERROR_CODES, APP_ERROR_CODES } from '@/lib/oidc/constants';
+import { createSessionData } from '@/lib/oidc/session';
 import type { TokenResponse, IDTokenClaims } from '@/lib/oidc/types';
 
 /**
@@ -56,50 +57,6 @@ interface CallbackQueryParams {
    * URI with more information about the error
    */
   error_uri?: string;
-}
-
-/**
- * Creates a session from the validated token response.
- *
- * Extracts user information and tokens from the token response
- * to create the session data structure.
- *
- * @param tokens - The token response from the provider
- * @param claims - The validated ID token claims
- * @returns Session data object
- */
-function createSessionFromTokensAndClaims(
-  tokens: TokenResponse,
-  claims: IDTokenClaims
-): {
-  sub: string;
-  name: string;
-  email: string;
-  picture?: string;
-  access_token: string;
-  refresh_token?: string;
-  id_token: string;
-  expires_at: number;
-  provider: string;
-  created_at: number;
-  updated_at: number;
-} {
-  const now = Date.now();
-  const config = getConfig();
-
-  return {
-    sub: claims.sub,
-    name: claims.name || claims.preferred_username || 'Unknown',
-    email: claims.email || '',
-    picture: claims.picture,
-    access_token: tokens.access_token,
-    refresh_token: tokens.refresh_token,
-    id_token: tokens.id_token,
-    expires_at: (tokens as TokenResponse & { expires_at?: number }).expires_at || Date.now() + tokens.expires_in * 1000,
-    provider: config.issuer,
-    created_at: now,
-    updated_at: now,
-  };
 }
 
 /**
@@ -199,7 +156,7 @@ export async function GET(request: Request) {
     // Validate state parameter matches (CSRF protection)
     validateStateMatch(authState.state, params.state!);
 
-    // Get the original redirect URI from config
+    // Get config for issuer
     const config = getConfig();
     const redirectUri = config.redirectUri;
 
@@ -225,9 +182,10 @@ export async function GET(request: Request) {
     }
 
     // Create session from validated tokens and claims
-    const sessionData = createSessionFromTokensAndClaims(
+    const sessionData = createSessionData(
       tokens,
-      validationResult.claims!
+      validationResult.claims!,
+      config.issuer
     );
 
     // Delete the temporary auth state cookie

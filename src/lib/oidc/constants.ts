@@ -398,6 +398,7 @@ export const ROUTES = {
   LOGIN: '/auth/login',
   CALLBACK: '/auth/callback',
   LOGOUT: '/auth/logout',
+  BACKCHANNEL_LOGOUT: '/auth/backchannel-logout',
   ERROR: '/auth/error',
   USER: '/user',
   HOME: '/',
@@ -425,4 +426,32 @@ export const VALIDATION_PATTERNS = {
    * Pattern for validating UUIDs
    */
   UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+} as const;
+
+// =============================================================================
+// Back-Channel Logout Constants
+// =============================================================================
+
+/**
+ * Back-Channel Logout event URI
+ *
+ * The standard URI that must be present in the events claim of a logout token.
+ *
+ * @see https://openid.net/specs/openid-connect-backchannel-1_0.html#LogoutToken
+ */
+export const BACKCHANNEL_LOGOUT_EVENT_URI =
+  'http://schemas.openid.net/event/backchannel-logout';
+
+/**
+ * Session Registry configuration
+ *
+ * Time-to-live values and intervals for the session registry.
+ */
+export const SESSION_REGISTRY = {
+  /** How often to clean up expired entries (ms) - not needed for Redis but kept for reference */
+  CLEANUP_INTERVAL: 60 * 60 * 1000, // 1 hour
+  /** How long to keep JTI records (ms) */
+  JTI_TTL: 24 * 60 * 60 * 1000, // 24 hours
+  /** How long to keep invalidated session records (ms) */
+  INVALIDATED_SESSION_TTL: 7 * 24 * 60 * 60 * 1000, // 7 days
 } as const;
