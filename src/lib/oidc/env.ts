@@ -22,6 +22,9 @@ interface EnvConfig {
   // Session Security
   sessionSecret: string;
 
+  // Back-Channel Logout
+  redisUrl: string;
+
   // Environment
   nodeEnv: string;
   isProduction: boolean;
@@ -30,11 +33,12 @@ interface EnvConfig {
 
 /**
  * Validates a URL string
+ * Supports http, https, redis, and rediss protocols
  */
 function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    return ['http:', 'https:', 'redis:', 'rediss:'].includes(parsed.protocol);
   } catch {
     return false;
   }
@@ -62,6 +66,7 @@ function getEnvConfig(): EnvConfig {
     OIDC_POST_LOGOUT_REDIRECT_URI,
     OIDC_SCOPE,
     SESSION_SECRET,
+    REDIS_URL,
     NODE_ENV,
   } = process.env;
 
@@ -114,6 +119,13 @@ function getEnvConfig(): EnvConfig {
     errors.push('SESSION_SECRET must be at least 32 characters long');
   }
 
+  // REDIS_URL (required for session registry / back-channel logout)
+  if (!REDIS_URL) {
+    errors.push('REDIS_URL is required for session registry');
+  } else if (!isValidUrl(REDIS_URL)) {
+    errors.push('REDIS_URL must be a valid URL (redis:// or rediss://)');
+  }
+
   // NODE_ENV (optional, defaults to development)
   const nodeEnv = NODE_ENV || 'development';
   if (
@@ -143,6 +155,7 @@ function getEnvConfig(): EnvConfig {
     postLogoutRedirectUri: OIDC_POST_LOGOUT_REDIRECT_URI!,
     scope: OIDC_SCOPE!,
     sessionSecret: SESSION_SECRET!,
+    redisUrl: REDIS_URL!,
     nodeEnv,
     isProduction: nodeEnv === 'production',
     isDevelopment: nodeEnv === 'development',

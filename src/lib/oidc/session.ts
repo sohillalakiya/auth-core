@@ -15,7 +15,8 @@ import {
   deleteSessionCookie,
 } from './cookies';
 import { TIME_CONSTANTS } from './constants';
-import type { SessionData, TokenResponse } from './types';
+import { getSessionRegistrySafe, generateSessionId } from './session-registry';
+import type { SessionData, TokenResponse, SessionRegistryEntry } from './types';
 
 /**
  * Result of a session refresh operation
@@ -195,6 +196,9 @@ export function getTimeSinceLastUpdate(session: SessionData): number {
 /**
  * Creates a session data object from token response and claims.
  *
+ * Generates a unique session ID and registers it in the session registry
+ * for back-channel logout support.
+ *
  * @param tokens - The token response from the provider
  * @param claims - The validated ID token claims
  * @param provider - The issuer/provider URL
@@ -202,10 +206,33 @@ export function getTimeSinceLastUpdate(session: SessionData): number {
  */
 export function createSessionData(
   tokens: TokenResponse & { expires_at?: number },
-  claims: { sub: string; name?: string; email?: string; picture?: string; preferred_username?: string },
+  claims: { sub: string; name?: string; email?: string; picture?: string; preferred_username?: string; sid?: string },
   provider: string
 ): SessionData {
   const now = Date.now();
+  // Use sid from ID token claims if available (for backchannel logout), otherwise generate
+  const sid = claims.sid || generateSessionId();
+  const expiresAt = tokens.expires_at || now + tokens.expires_in * 1000;
+
+  // Register session in registry for back-channel logout
+  const registryEntry: SessionRegistryEntry = {
+    sub: claims.sub,
+    sid,
+    provider,
+    createdAt: now,
+    expiresAt,
+  };
+
+  // Register asynchronously - don't block session creation
+  const registry = getSessionRegistrySafe();
+  if (registry) {
+    console.log(`Registering session in Redis: sid=${sid}, sub=${claims.sub}`);
+    registry.register(registryEntry).catch((error) => {
+      console.error('Failed to register session in registry:', error);
+    });
+  } else {
+    console.warn('Session registry not available - backchannel logout will not work');
+  }
 
   return {
     sub: claims.sub,
@@ -215,10 +242,11 @@ export function createSessionData(
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     id_token: tokens.id_token,
-    expires_at: tokens.expires_at || now + tokens.expires_in * 1000,
+    expires_at: expiresAt,
     provider,
     created_at: now,
     updated_at: now,
+    sid, // Session ID for back-channel logout
   };
 }
 

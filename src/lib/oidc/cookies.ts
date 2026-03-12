@@ -15,6 +15,25 @@ import {
 } from './constants';
 
 /**
+ * Session registry for back-channel logout validation
+ * Imported lazily to avoid circular dependencies
+ */
+let registryModule: typeof import('./session-registry') | null = null;
+
+async function getRegistry(): Promise<import('./session-registry').SessionRegistryStorage | null> {
+  if (!registryModule) {
+    try {
+      // Lazy dynamic import to avoid circular dependency
+      registryModule = await import('./session-registry');
+    } catch {
+      // Redis not configured, return null
+      return null;
+    }
+  }
+  return registryModule.getSessionRegistrySafe();
+}
+
+/**
  * Cookie setting options
  */
 export interface CookieOptions {
@@ -254,7 +273,11 @@ export async function setSessionCookie(session: SessionData): Promise<void> {
 /**
  * Gets the session data from the cookie.
  *
- * @returns The parsed session data or undefined if not found
+ * Also validates the session against the session registry to check if it
+ * was invalidated via back-channel logout. If invalidated, the cookie
+ * is deleted and undefined is returned.
+ *
+ * @returns The parsed session data or undefined if not found or invalidated
  * @throws {Error} If the cookie value is invalid JSON
  *
  * @example
@@ -289,6 +312,27 @@ export async function getSessionCookie(): Promise<SessionData | undefined> {
       return undefined;
     }
 
+    // Check if session was invalidated via back-channel logout
+    if (parsed.sid) {
+      try {
+        const registry = await getRegistry();
+        if (registry) {
+          const isValid = await registry.isValid(parsed.sid);
+
+          if (!isValid) {
+            // Session was invalidated via backchannel logout
+            console.log('Session invalidated via backchannel logout, returning no session');
+            // Note: We can't delete the cookie here because we're in a Server Component
+            // The application should redirect to login, and the cookie will be cleared there
+            return undefined;
+          }
+        }
+      } catch (error) {
+        // If registry check fails, log but allow the session
+        console.error('Failed to check session validity:', error);
+      }
+    }
+
     return {
       sub: parsed.sub,
       name: parsed.name,
@@ -301,6 +345,7 @@ export async function getSessionCookie(): Promise<SessionData | undefined> {
       provider: parsed.provider,
       created_at: parsed.created_at,
       updated_at: parsed.updated_at,
+      sid: parsed.sid, // Include session ID
     };
   } catch {
     return undefined;
