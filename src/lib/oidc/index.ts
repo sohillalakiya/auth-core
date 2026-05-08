@@ -33,6 +33,7 @@ export type {
   LogoutTokenValidationResult,
   SessionRegistryEntry,
   SessionRegistryStorage,
+  SessionTokens,
 } from './types';
 
 // Error Classes

@@ -18,6 +18,7 @@ import { generatePKCECodePair } from '@/lib/oidc/pkce';
 import { generateState, generateNonce, createAuthState } from '@/lib/oidc/state';
 import { buildAuthorizationUrl } from '@/lib/oidc/authorization';
 import { setAuthStateCookie } from '@/lib/oidc/cookies';
+import { generateDPoPKeyPair } from '@/lib/oidc/dpop';
 import { ROUTES } from '@/lib/oidc/constants';
 
 /**
@@ -115,6 +116,17 @@ export async function GET(request: Request) {
       queryParams.redirect_uri || ROUTES.USER
     );
 
+    // Generate DPoP key pair when DPoP is enabled and store in auth state.
+    // The encrypted AuthState cookie carries the private key until the callback.
+    let dpopJkt: string | undefined;
+    if (config.dpopEnabled) {
+      const dpopKeyPair = await generateDPoPKeyPair();
+      authState.dpop_private_key = dpopKeyPair.privateKey;
+      authState.dpop_public_key = dpopKeyPair.publicKey;
+      authState.dpop_jkt = dpopKeyPair.jkt;
+      dpopJkt = dpopKeyPair.jkt;
+    }
+
     // Store auth state in cookie for verification in callback
     await setAuthStateCookie(authState);
 
@@ -130,6 +142,7 @@ export async function GET(request: Request) {
       forceReauth: queryParams.reauth === 'true',
       idTokenHint: queryParams.id_token_hint,
       loginHint: queryParams.login_hint,
+      dpopJkt,
     });
 
     // Redirect to provider's authorization endpoint

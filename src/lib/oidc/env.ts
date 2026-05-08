@@ -25,6 +25,9 @@ interface EnvConfig {
   // Back-Channel Logout
   redisUrl: string;
 
+  // DPoP Settings (RFC 9449)
+  dpopEnabled: boolean;
+
   // Environment
   nodeEnv: string;
   isProduction: boolean;
@@ -68,6 +71,7 @@ function getEnvConfig(): EnvConfig {
     SESSION_SECRET,
     REDIS_URL,
     NODE_ENV,
+    DPOP_ENABLED,
   } = process.env;
 
   // Validate required environment variables
@@ -147,6 +151,9 @@ function getEnvConfig(): EnvConfig {
   // Ensure issuer URL has no trailing slash for consistency
   const issuer = OIDC_ISSUER!.replace(/\/$/, '');
 
+  // DPoP Configuration (optional, defaults to false)
+  const dpopEnabled = DPOP_ENABLED === 'true' || DPOP_ENABLED === '1';
+
   return {
     issuer,
     clientId: OIDC_CLIENT_ID!,
@@ -156,6 +163,7 @@ function getEnvConfig(): EnvConfig {
     scope: OIDC_SCOPE!,
     sessionSecret: SESSION_SECRET!,
     redisUrl: REDIS_URL!,
+    dpopEnabled,
     nodeEnv,
     isProduction: nodeEnv === 'production',
     isDevelopment: nodeEnv === 'development',

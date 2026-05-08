@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { ROUTES } from '@/lib/oidc/constants';
+import { decryptCookieValue } from '@/lib/oidc/cookie-encryption';
 
 /**
  * Routes that require authentication
@@ -20,7 +21,7 @@ const PROTECTED_ROUTES = ['/user'];
  * Routes that should never be protected (auth routes, public pages)
  */
 const PUBLIC_ROUTES = [
-  '/',
+  '/login',
   '/auth/login',
   '/auth/callback',
   '/auth/error',
@@ -99,7 +100,7 @@ function redirectToLogin(request: NextRequest, returnTo?: string): NextResponse 
  * @param request - The incoming request
  * @returns NextResponse (redirect or continue)
  */
-export function proxy(request: NextRequest): NextResponse {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   // Skip proxy for non-page routes (API routes, static files, Next.js internals)
@@ -126,11 +127,14 @@ export function proxy(request: NextRequest): NextResponse {
     }
 
     try {
-      // Parse session cookie
-      const session = JSON.parse(sessionCookie.value);
+      const decrypted = await decryptCookieValue(sessionCookie.value);
+      if (!decrypted) {
+        return redirectToLogin(request, pathname);
+      }
+      const session = JSON.parse(decrypted);
 
-      // Validate session has required fields
-      if (!session.sub || !session.access_token || !session.expires_at) {
+      // Validate session has required fields (tokens are in Redis, not the cookie)
+      if (!session.sub || !session.expires_at) {
         return redirectToLogin(request, pathname);
       }
 

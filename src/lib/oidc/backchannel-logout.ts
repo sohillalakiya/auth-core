@@ -67,7 +67,7 @@ export async function validateLogoutToken(
 ): Promise<LogoutTokenValidationResult> {
   try {
     // 1. Decode JWT
-    const { header, payload } = decodeJWT(logoutToken);
+    const { payload } = decodeJWT(logoutToken);
 
     // DEBUG: Log the payload to see what Keycloak is sending
     console.log('=== BACKCHANNEL LOGOUT TOKEN PAYLOAD ===');

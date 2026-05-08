@@ -97,6 +97,11 @@ export interface AuthorizationRequestOptions {
    * Force re-authentication (adds prompt=login)
    */
   forceReauth?: boolean;
+
+  /**
+   * DPoP public key thumbprint — binds the authorization code to the DPoP key (RFC 9449 §10)
+   */
+  dpopJkt?: string;
 }
 
 /**
@@ -214,6 +219,11 @@ export function buildAuthorizationUrl(options: AuthorizationRequestOptions): str
       url.searchParams.append(key, String(value));
     }
   });
+
+  // dpop_jkt is not a standard AuthorizationRequestParams field so it's appended separately
+  if (options.dpopJkt) {
+    url.searchParams.append('dpop_jkt', options.dpopJkt);
+  }
 
   return url.toString();
 }

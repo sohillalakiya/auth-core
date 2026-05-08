@@ -13,6 +13,7 @@ import {
   COOKIE_NAMES,
   TIME_CONSTANTS,
 } from './constants';
+import { encryptCookieValue, decryptCookieValue } from './cookie-encryption';
 
 /**
  * Session registry for back-channel logout validation
@@ -184,7 +185,7 @@ export async function hasCookie(name: string): Promise<boolean> {
  * ```
  */
 export async function setAuthStateCookie(authState: AuthState): Promise<void> {
-  const value = JSON.stringify(authState);
+  const value = await encryptCookieValue(JSON.stringify(authState));
   await setCookie(COOKIE_NAMES.AUTH_STATE, value, AUTH_STATE_COOKIE_OPTIONS);
 }
 
@@ -203,15 +204,15 @@ export async function setAuthStateCookie(authState: AuthState): Promise<void> {
  * ```
  */
 export async function getAuthStateCookie(): Promise<AuthState | undefined> {
-  const value = await getCookie(COOKIE_NAMES.AUTH_STATE);
-  if (!value) {
-    return undefined;
-  }
+  const raw = await getCookie(COOKIE_NAMES.AUTH_STATE);
+  if (!raw) return undefined;
+
+  const value = await decryptCookieValue(raw);
+  if (!value) return undefined;
 
   try {
     const parsed = JSON.parse(value);
 
-    // Validate required fields
     if (
       !parsed.code_verifier ||
       !parsed.state ||
@@ -227,6 +228,9 @@ export async function getAuthStateCookie(): Promise<AuthState | undefined> {
       nonce: parsed.nonce,
       timestamp: parsed.timestamp,
       redirect_uri: parsed.redirect_uri,
+      dpop_private_key: parsed.dpop_private_key,
+      dpop_public_key: parsed.dpop_public_key,
+      dpop_jkt: parsed.dpop_jkt,
     };
   } catch {
     return undefined;
@@ -266,7 +270,32 @@ export async function deleteAuthStateCookie(): Promise<void> {
  * ```
  */
 export async function setSessionCookie(session: SessionData): Promise<void> {
-  const value = JSON.stringify(session);
+  // Tokens are large JWTs (Keycloak includes roles/claims) that push the cookie
+  // past the 4 KB browser limit. Store them in Redis and strip from the cookie.
+  if (session.sid) {
+    try {
+      const registry = await getRegistry();
+      if (registry) {
+        await registry.storeTokens(
+          session.sid,
+          {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            id_token: session.id_token,
+          },
+          session.expires_at,
+        );
+      }
+    } catch (error) {
+      console.error('[Session] Failed to store tokens in Redis:', error);
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { access_token, refresh_token, id_token, ...cookiePayload } = session;
+  const plaintext = JSON.stringify(cookiePayload);
+  const value = await encryptCookieValue(plaintext);
+  console.log(`[Session] setSessionCookie: plaintext=${plaintext.length}B, encrypted=${value.length}B`);
   await setCookie(COOKIE_NAMES.SESSION, value, SESSION_COOKIE_OPTIONS);
 }
 
@@ -289,21 +318,21 @@ export async function setSessionCookie(session: SessionData): Promise<void> {
  * ```
  */
 export async function getSessionCookie(): Promise<SessionData | undefined> {
-  const value = await getCookie(COOKIE_NAMES.SESSION);
-  if (!value) {
-    return undefined;
-  }
+  const raw = await getCookie(COOKIE_NAMES.SESSION);
+  if (!raw) return undefined;
+
+  const value = await decryptCookieValue(raw);
+  console.log(`[Session] getSessionCookie: decryption=${value ? 'success' : 'FAILED'}`);
+  if (!value) return undefined;
 
   try {
     const parsed = JSON.parse(value);
 
-    // Validate required fields
+    // Validate required metadata fields (tokens are stored separately in Redis)
     if (
       !parsed.sub ||
       !parsed.name ||
       !parsed.email ||
-      !parsed.access_token ||
-      !parsed.id_token ||
       !parsed.expires_at ||
       !parsed.provider ||
       !parsed.created_at ||
@@ -312,25 +341,35 @@ export async function getSessionCookie(): Promise<SessionData | undefined> {
       return undefined;
     }
 
-    // Check if session was invalidated via back-channel logout
+    // Check backchannel-logout invalidation and fetch tokens from Redis
     if (parsed.sid) {
       try {
         const registry = await getRegistry();
         if (registry) {
           const isValid = await registry.isValid(parsed.sid);
-
           if (!isValid) {
-            // Session was invalidated via backchannel logout
             console.log('Session invalidated via backchannel logout, returning no session');
-            // Note: We can't delete the cookie here because we're in a Server Component
-            // The application should redirect to login, and the cookie will be cleared there
             return undefined;
           }
+
+          const tokens = await registry.getTokens(parsed.sid);
+          if (!tokens) {
+            // Tokens expired or Redis was flushed — force re-login
+            console.warn('[Session] Tokens not found in Redis for sid:', parsed.sid);
+            return undefined;
+          }
+          parsed.access_token = tokens.access_token;
+          parsed.refresh_token = tokens.refresh_token;
+          parsed.id_token = tokens.id_token;
         }
       } catch (error) {
-        // If registry check fails, log but allow the session
-        console.error('Failed to check session validity:', error);
+        console.error('Failed to load session tokens:', error);
+        return undefined;
       }
+    }
+
+    if (!parsed.access_token || !parsed.id_token) {
+      return undefined;
     }
 
     return {
@@ -345,7 +384,7 @@ export async function getSessionCookie(): Promise<SessionData | undefined> {
       provider: parsed.provider,
       created_at: parsed.created_at,
       updated_at: parsed.updated_at,
-      sid: parsed.sid, // Include session ID
+      sid: parsed.sid,
     };
   } catch {
     return undefined;

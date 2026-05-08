@@ -204,17 +204,15 @@ export function getTimeSinceLastUpdate(session: SessionData): number {
  * @param provider - The issuer/provider URL
  * @returns Session data object
  */
-export function createSessionData(
+export async function createSessionData(
   tokens: TokenResponse & { expires_at?: number },
   claims: { sub: string; name?: string; email?: string; picture?: string; preferred_username?: string; sid?: string },
   provider: string
-): SessionData {
+): Promise<SessionData> {
   const now = Date.now();
-  // Use sid from ID token claims if available (for backchannel logout), otherwise generate
   const sid = claims.sid || generateSessionId();
   const expiresAt = tokens.expires_at || now + tokens.expires_in * 1000;
 
-  // Register session in registry for back-channel logout
   const registryEntry: SessionRegistryEntry = {
     sub: claims.sub,
     sid,
@@ -223,15 +221,15 @@ export function createSessionData(
     expiresAt,
   };
 
-  // Register asynchronously - don't block session creation
+  // Await registration so the session exists in Redis before the cookie is written.
+  // This prevents a race where isValid() runs before the hash is stored.
   const registry = getSessionRegistrySafe();
   if (registry) {
-    console.log(`Registering session in Redis: sid=${sid}, sub=${claims.sub}`);
-    registry.register(registryEntry).catch((error) => {
-      console.error('Failed to register session in registry:', error);
-    });
-  } else {
-    console.warn('Session registry not available - backchannel logout will not work');
+    try {
+      await registry.register(registryEntry);
+    } catch (error) {
+      console.error('[Session] Failed to register session in Redis:', error);
+    }
   }
 
   return {
