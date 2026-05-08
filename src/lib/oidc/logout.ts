@@ -120,13 +120,16 @@ export function createLogoutRequest(
 ): { logoutUrl: string; state: string } {
   const config = getConfig();
   const state = generateState();
+  const redirectUri = postLogoutRedirectUri || config.postLogoutRedirectUri;
 
-  // Use configured post-logout redirect URI if not provided
-  const _redirectUri = postLogoutRedirectUri || config.postLogoutRedirectUri;
+  // Builds query-string portion only — prepend the discovered end_session_endpoint.
+  // For a complete async URL, use prepareLogout() instead.
+  const params = new URLSearchParams({ state, id_token_hint: idToken });
+  if (redirectUri) params.set('post_logout_redirect_uri', redirectUri);
 
   return {
     state,
-    logoutUrl: '', // Will be set after discovering provider
+    logoutUrl: `?${params.toString()}`,
   };
 }
 

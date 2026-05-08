@@ -28,7 +28,6 @@ import { validateStateMatch, isAuthStateValid } from '@/lib/oidc/state';
 import { ROUTES, TIME_CONSTANTS, AUTHORIZATION_ERROR_CODES, APP_ERROR_CODES } from '@/lib/oidc/constants';
 import { createSessionData } from '@/lib/oidc/session';
 import { generateDPoPProof } from '@/lib/oidc/dpop';
-import type { TokenResponse, IDTokenClaims } from '@/lib/oidc/types';
 
 /**
  * Query parameters received from the OIDC provider callback

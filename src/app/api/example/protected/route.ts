@@ -31,18 +31,15 @@ import { getSession } from '@/lib/oidc/session';
 export const GET = withDPoP({
   enabled: true, // Enable DPoP validation
   required: true, // Require DPoP proof
-  getJkt: async (request: NextRequest) => {
-    // Get the session and extract the DPoP JKT
+  getJkt: async () => {
     const session = await getSession();
     return session?.dpop_jkt;
   },
-  getAccessToken: async (request: NextRequest) => {
-    // Get the access token for ATH validation
+  getAccessToken: async () => {
     const session = await getSession();
     return session?.access_token;
   },
-})(async (request: NextRequest) => {
-  // DPoP validation has passed - handle the request
+})(async () => {
   const session = await getSession();
 
   return NextResponse.json({
@@ -76,11 +73,11 @@ export const GET = withDPoP({
 export const POST = withDPoP({
   enabled: true,
   required: true,
-  getJkt: async (request: NextRequest) => {
+  getJkt: async () => {
     const session = await getSession();
     return session?.dpop_jkt;
   },
-  getAccessToken: async (request: NextRequest) => {
+  getAccessToken: async () => {
     const session = await getSession();
     return session?.access_token;
   },

@@ -238,7 +238,7 @@ export interface DPoPMiddlewareConfig {
  * });
  * ```
  */
-export function withDPoP<T extends any[]>(
+export function withDPoP<T extends unknown[]>(
   config: DPoPMiddlewareConfig = {}
 ) {
   return (

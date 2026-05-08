@@ -5,7 +5,7 @@ import { getSession } from '@/lib/oidc/session';
 const dpopEnabled =
   process.env.DPOP_ENABLED === 'true' || process.env.DPOP_ENABLED === '1';
 
-async function getHandler(_request: NextRequest): Promise<NextResponse> {
+async function getHandler(): Promise<NextResponse> {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   // Client is the source of truth (localStorage); we just confirm auth.

@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/oidc/session';
 import { ROUTES } from '@/lib/oidc/constants';
@@ -57,10 +58,13 @@ export default async function HomePage() {
             {/* Avatar */}
             <div className="flex items-center gap-4">
               {session.picture ? (
-                <img
+                <Image
                   src={session.picture}
                   alt={session.name}
-                  className="w-16 h-16 rounded-full object-cover border-2 border-zinc-200 dark:border-zinc-700"
+                  width={64}
+                  height={64}
+                  className="rounded-full object-cover border-2 border-zinc-200 dark:border-zinc-700"
+                  unoptimized
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold">
