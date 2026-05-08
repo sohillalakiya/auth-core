@@ -402,7 +402,13 @@ export const ROUTES = {
   ERROR: '/auth/error',
   USER: '/user',
   HOME: '/',
+  OTP_LOGIN: '/login/otp',
+  OTP_VERIFY_PAGE: '/login/otp/verify',
+  OTP_REQUEST: '/auth/otp/request',
+  OTP_VERIFY: '/auth/otp/verify',
 } as const;
+
+export const OTP_REDIS_PREFIX = 'otp';
 
 // =============================================================================
 // Validation Patterns
