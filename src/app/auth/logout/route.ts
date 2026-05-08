@@ -97,13 +97,19 @@ export async function GET(request: Request) {
     // Redirect to provider's end_session_endpoint
     return redirect(logoutUrl);
   } catch (error) {
-    // Log error but still clear session and redirect
+    if (
+      error &&
+      typeof error === 'object' &&
+      'digest' in error &&
+      typeof (error as { digest: unknown }).digest === 'string' &&
+      (error as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+    ) {
+      throw error;
+    }
+
+    // Log actual errors, clear session, and redirect home
     console.error('Error during logout:', error);
-
-    // Ensure session is cleared even on error
     await deleteSessionCookie();
-
-    // Redirect to home page
     return redirect(ROUTES.HOME);
   }
 }

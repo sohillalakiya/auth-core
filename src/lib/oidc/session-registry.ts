@@ -14,7 +14,7 @@
  */
 
 import Redis from 'ioredis';
-import type { SessionRegistryStorage, SessionRegistryEntry } from './types';
+import type { SessionRegistryStorage, SessionRegistryEntry, SessionTokens } from './types';
 import { SESSION_REGISTRY } from './constants';
 
 /**
@@ -38,6 +38,30 @@ export class RedisSessionRegistry implements SessionRegistryStorage {
   constructor(redisUrl: string, prefix: string = 'oidc_session') {
     this.redis = new Redis(redisUrl);
     this.prefix = prefix;
+
+    this.redis.on('ready', () => {
+      console.log('[Redis] Connected and ready');
+    });
+
+    this.redis.on('connect', () => {
+      console.log('[Redis] TCP connection established');
+    });
+
+    this.redis.on('error', (error: Error) => {
+      console.error('[Redis] Connection error:', error.message);
+    });
+
+    this.redis.on('reconnecting', () => {
+      console.warn('[Redis] Connection lost — reconnecting...');
+    });
+
+    this.redis.on('close', () => {
+      console.warn('[Redis] Connection closed');
+    });
+
+    this.redis.on('end', () => {
+      console.warn('[Redis] Connection permanently ended');
+    });
   }
 
   /**
@@ -158,11 +182,11 @@ export class RedisSessionRegistry implements SessionRegistryStorage {
    * @returns true if the session is valid, false otherwise
    */
   async isValid(sid: string): Promise<boolean> {
-    const key = this.sessionKey(sid);
-    const exists = await this.redis.exists(key);
-    const invalidated = await this.redis.exists(`${key}:invalidated`);
-
-    return exists === 1 && invalidated === 0;
+    // The registry tracks explicit invalidations only (e.g. back-channel logout).
+    // A session not present in Redis (timing, TTL expiry, registration failure)
+    // is still valid — the cookie's own expires_at is the primary expiry check.
+    const invalidated = await this.redis.exists(`${this.sessionKey(sid)}:invalidated`);
+    return invalidated === 0;
   }
 
   /**
@@ -201,6 +225,39 @@ export class RedisSessionRegistry implements SessionRegistryStorage {
       'EX',
       Math.max(ttl, 1)
     );
+  }
+
+  /**
+   * Store session tokens in Redis so they don't need to live in the browser cookie.
+   * The Redis key mirrors the session hash key with a `:tokens` suffix.
+   */
+  async storeTokens(sid: string, tokens: SessionTokens, expiresAt: number): Promise<void> {
+    const key = `${this.sessionKey(sid)}:tokens`;
+    const data: Record<string, string> = {
+      access_token: tokens.access_token,
+      id_token: tokens.id_token,
+    };
+    if (tokens.refresh_token) {
+      data.refresh_token = tokens.refresh_token;
+    }
+    await this.redis.hset(key, data);
+    await this.redis.expireat(key, Math.floor(expiresAt / 1000));
+  }
+
+  /**
+   * Retrieve tokens for a session.
+   *
+   * Returns null if the key has expired or was never stored (e.g. Redis flush).
+   */
+  async getTokens(sid: string): Promise<SessionTokens | null> {
+    const key = `${this.sessionKey(sid)}:tokens`;
+    const data = await this.redis.hgetall(key);
+    if (!data.access_token || !data.id_token) return null;
+    return {
+      access_token: data.access_token,
+      id_token: data.id_token,
+      refresh_token: data.refresh_token || undefined,
+    };
   }
 
   /**

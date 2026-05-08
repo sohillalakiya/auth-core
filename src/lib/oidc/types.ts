@@ -47,6 +47,7 @@ export interface OpenIDProviderMetadata {
   backchannel_logout_supported?: boolean;
   backchannel_logout_session_supported?: boolean;
   tls_client_certificate_bound_access_tokens?: boolean;
+  dpop_signing_alg_values_supported?: string[];
   revocation_endpoint?: string;
   introspection_endpoint?: string;
   pushed_authorization_request_endpoint?: string;
@@ -357,6 +358,11 @@ export interface SessionData {
 
   // Back-channel logout
   sid?: string; // Session ID for backchannel logout (optional for legacy sessions)
+
+  // DPoP (RFC 9449)
+  dpop_jkt?: string; // JWT Thumbprint of the DPoP public key
+  dpop_public_key?: string; // Stored public key for rotation
+  dpop_key_created_at?: number; // When the DPoP key was created
 }
 
 /**
@@ -370,6 +376,10 @@ export interface AuthState {
   nonce: string;
   timestamp: number;
   redirect_uri: string;
+  // DPoP key pair serialized as JWK strings — present when DPOP_ENABLED (RFC 9449)
+  dpop_private_key?: string;
+  dpop_public_key?: string;
+  dpop_jkt?: string;
 }
 
 // =============================================================================
@@ -529,6 +539,12 @@ export interface SessionRegistryEntry {
  * Abstract interface for session registry storage backends.
  * Implemented by RedisSessionRegistry.
  */
+export interface SessionTokens {
+  access_token: string;
+  refresh_token?: string;
+  id_token: string;
+}
+
 export interface SessionRegistryStorage {
   /** Register a new session */
   register(entry: SessionRegistryEntry): Promise<void>;
@@ -544,6 +560,10 @@ export interface SessionRegistryStorage {
   isJtiUsed(jti: string): Promise<boolean>;
   /** Mark a JTI as used to prevent replay attacks */
   markJtiUsed(jti: string, expiresAt: number): Promise<void>;
+  /** Store session tokens in Redis to keep the browser cookie under 4 KB */
+  storeTokens(sid: string, tokens: SessionTokens, expiresAt: number): Promise<void>;
+  /** Retrieve tokens for a session */
+  getTokens(sid: string): Promise<SessionTokens | null>;
 }
 
 /**
@@ -559,6 +579,130 @@ export interface LogoutTokenValidationResult {
   /** Error message (if invalid) */
   error?: string;
 }
+
+// =============================================================================
+// DPoP Types (RFC 9449)
+// =============================================================================
+
+/**
+ * DPoP (Demonstrating Proof-of-Possession) Key Pair
+ *
+ * Contains the private/public key pair for DPoP proof generation.
+ *
+ * @see https://www.rfc-editor.org/rfc/rfc9449
+ */
+export interface DPoPKeyPair {
+  /** JSON Web Key representation of the private key */
+  privateKey: string;
+  /** JSON Web Key representation of the public key */
+  publicKey: string;
+  /** JWT Thumbprint (JKT) of the public key - used for confirmation */
+  jkt: string;
+}
+
+/**
+ * DPoP Proof Header Options
+ *
+ * Options for generating a DPoP proof JWT.
+ */
+export interface DPoPHeaderOptions {
+  /** HTTP URI - the full URI of the request */
+  htu: string;
+  /** HTTP Method - the HTTP method of the request */
+  htm: string;
+  /** Optional DPoP nonce from the server */
+  dpopNonce?: string;
+  /** Optional Access Token Hash (ath) claim */
+  ath?: string;
+}
+
+/**
+ * DPoP Proof
+ *
+ * Contains the generated DPoP proof JWT and its JKT.
+ */
+export interface DPoPProof {
+  /** The DPoP proof JWT */
+  proof: string;
+  /** JWT Thumbprint of the public key */
+  jkt: string;
+}
+
+/**
+ * Token Response with DPoP confirmation
+ *
+ * Extended token response that may include DPoP confirmation claims.
+ */
+export interface DPoPTokenResponse extends TokenResponse {
+  /** DPoP confirmation - contains the JKT claim */
+  cnf?: {
+    /** JWT Thumbprint of the DPoP public key */
+    jkt: string;
+  };
+  /** Optional DPoP nonce from the server */
+  dpop_nonce?: string;
+}
+
+/**
+ * DPoP Proof Validation Result
+ *
+ * Result of validating a DPoP proof.
+ */
+export interface DPoPValidationResult {
+  /** Whether the proof is valid */
+  valid: boolean;
+  /** JWT Thumbprint extracted from the proof */
+  jkt: string;
+  /** The decoded proof payload (if valid) */
+  payload?: DPoPPayload;
+  /** Error message (if invalid) */
+  error?: string;
+}
+
+/**
+ * DPoP Proof Payload
+ *
+ * Claims in a DPoP proof JWT.
+ */
+export interface DPoPPayload {
+  /** JWT ID - unique identifier for this proof */
+  jti: string;
+  /** HTTP Method - the HTTP method of the request */
+  htm: string;
+  /** HTTP URI - the full URI of the request */
+  htu: string;
+  /** Issued At - timestamp when the proof was created */
+  iat: number;
+  /** Optional nonce from the server */
+  nonce?: string;
+  /** Optional Access Token Hash */
+  ath?: string;
+}
+
+/**
+ * DPoP Session Data Extension
+ *
+ * Extended session data with DPoP information.
+ */
+export interface DPoPSessionData extends SessionData {
+  /** DPoP public key JWK (stored for key rotation) */
+  dpop_public_key?: string;
+  /** JWT Thumbprint of the DPoP key */
+  dpop_jkt?: string;
+  /** Timestamp when the DPoP key was created */
+  dpop_key_created_at?: number;
+}
+
+/**
+ * DPoP Error Codes
+ *
+ * Error codes specific to DPoP operations per RFC 9449.
+ *
+ * @see https://www.rfc-editor.org/rfc/rfc9449#section-8.2
+ */
+export type DPoPErrorCode =
+  | 'invalid_dpop_proof'
+  | 'use_dpop_nonce';
 
 // =============================================================================
 // Custom Error Types
@@ -625,5 +769,21 @@ export class DiscoveryError extends OIDCError {
   constructor(message: string) {
     super(message, 'discovery_error');
     this.name = 'DiscoveryError';
+  }
+}
+
+/**
+ * DPoP Error
+ *
+ * Error thrown when DPoP proof validation fails.
+ */
+export class DPoPError extends OIDCError {
+  constructor(
+    message: string,
+    public code?: DPoPErrorCode,
+    public nonce?: string
+  ) {
+    super(message, code);
+    this.name = 'DPoPError';
   }
 }

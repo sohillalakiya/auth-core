@@ -27,6 +27,7 @@ import {
 import { validateStateMatch, isAuthStateValid } from '@/lib/oidc/state';
 import { ROUTES, TIME_CONSTANTS, AUTHORIZATION_ERROR_CODES, APP_ERROR_CODES } from '@/lib/oidc/constants';
 import { createSessionData } from '@/lib/oidc/session';
+import { generateDPoPProof } from '@/lib/oidc/dpop';
 import type { TokenResponse, IDTokenClaims } from '@/lib/oidc/types';
 
 /**
@@ -163,12 +164,29 @@ export async function GET(request: Request) {
     // Discover provider metadata
     const provider = await discoverProvider();
 
+    // Generate DPoP proof for the token endpoint if a key pair was stored at login
+    let dpopProof: string | undefined;
+    if (authState.dpop_private_key && authState.dpop_public_key && authState.dpop_jkt) {
+      dpopProof = await generateDPoPProof(
+        {
+          privateKey: authState.dpop_private_key,
+          publicKey: authState.dpop_public_key,
+          jkt: authState.dpop_jkt,
+        },
+        {
+          htm: 'POST',
+          htu: provider.token_endpoint,
+        }
+      );
+    }
+
     // Exchange authorization code for tokens
     const tokens = await exchangeAuthorizationCode({
       code: params.code!,
       codeVerifier: authState.code_verifier,
       redirectUri,
       tokenEndpoint: provider.token_endpoint,
+      dpopProof,
     });
 
     // Validate ID token (signature, claims, nonce)
@@ -182,11 +200,18 @@ export async function GET(request: Request) {
     }
 
     // Create session from validated tokens and claims
-    const sessionData = createSessionData(
+    const sessionData = await createSessionData(
       tokens,
       validationResult.claims!,
       config.issuer
     );
+
+    // Attach DPoP public key info to session so it's available for future API calls
+    if (authState.dpop_jkt && authState.dpop_public_key) {
+      sessionData.dpop_jkt = authState.dpop_jkt;
+      sessionData.dpop_public_key = authState.dpop_public_key;
+      sessionData.dpop_key_created_at = Date.now();
+    }
 
     // Delete the temporary auth state cookie
     await deleteAuthStateCookie();

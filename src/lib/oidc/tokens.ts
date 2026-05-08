@@ -50,6 +50,18 @@ export interface TokenRequestOptions {
    * Defaults to discovered provider token endpoint
    */
   tokenEndpoint?: string;
+
+  /**
+   * Optional DPoP proof JWT for DPoP-bound tokens
+   * RFC 9449: https://www.rfc-editor.org/rfc/rfc9449
+   */
+  dpopProof?: string;
+
+  /**
+   * Optional DPoP nonce from previous request
+   * Server may require this nonce in subsequent DPoP proofs
+   */
+  dpopNonce?: string;
 }
 
 /**
@@ -100,11 +112,13 @@ function buildTokenRequestBody(
  *
  * @param clientSecret - Optional client secret for basic auth
  * @param clientId - Client ID for basic auth
+ * @param dpopProof - Optional DPoP proof JWT
  * @returns Request headers object
  */
 function buildTokenRequestHeaders(
   clientSecret?: string,
-  clientId?: string
+  clientId?: string,
+  dpopProof?: string
 ): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -117,6 +131,11 @@ function buildTokenRequestHeaders(
     headers['Authorization'] = `Basic ${credentials}`;
   }
 
+  // Add DPoP header if proof is provided
+  if (dpopProof) {
+    headers['DPoP'] = dpopProof;
+  }
+
   return headers;
 }
 
@@ -124,10 +143,10 @@ function buildTokenRequestHeaders(
  * Parses and validates the token response.
  *
  * @param response - The fetch response from the token endpoint
- * @returns Parsed token response
+ * @returns Parsed token response with optional DPoP nonce
  * @throws {Error} If the response is invalid or contains an error
  */
-async function parseTokenResponse(response: Response): Promise<TokenResponse> {
+async function parseTokenResponse(response: Response): Promise<TokenResponse & { dpop_nonce?: string }> {
   const contentType = response.headers.get('content-type');
 
   // Check for JSON response
@@ -158,12 +177,19 @@ async function parseTokenResponse(response: Response): Promise<TokenResponse> {
     );
   }
 
-  // Validate token type
-  if (data.token_type.toLowerCase() !== 'bearer') {
-    throw new Error(`Unsupported token type: ${data.token_type}. Only "Bearer" is supported.`);
+  // Validate token type (support both "Bearer" and "DPoP")
+  const tokenType = data.token_type.toLowerCase();
+  if (tokenType !== 'bearer' && tokenType !== 'dpop') {
+    throw new Error(`Unsupported token type: ${data.token_type}. Only "Bearer" and "DPoP" are supported.`);
   }
 
-  return data as TokenResponse;
+  // Extract DPoP nonce from response headers
+  const dpopNonce = response.headers.get('dpop-nonce');
+
+  return {
+    ...data,
+    dpop_nonce: dpopNonce ?? data.dpop_nonce,
+  } as TokenResponse & { dpop_nonce?: string };
 }
 
 /**
@@ -206,14 +232,15 @@ function calculateTokenExpiration(expiresIn: number): number {
  */
 export async function exchangeAuthorizationCode(
   options: TokenRequestOptions
-): Promise<TokenResponse> {
+): Promise<TokenResponse & { dpop_nonce?: string }> {
   const config = getConfig();
 
   // Build request
   const body = buildTokenRequestBody(options, config);
   const headers = buildTokenRequestHeaders(
     options.clientSecret || config.clientSecret,
-    options.clientId || config.clientId
+    options.clientId || config.clientId,
+    options.dpopProof
   );
 
   const tokenEndpoint = options.tokenEndpoint || config.issuer + '/protocol/openid-connect/token';
@@ -230,8 +257,13 @@ export async function exchangeAuthorizationCode(
       // Try to parse error response
       let errorMessage = `Token request failed: ${response.status} ${response.statusText}`;
       try {
-        const errorData: TokenErrorResponse = await response.json();
+        const errorData: TokenErrorResponse & { dpop_nonce?: string } = await response.json();
         errorMessage = errorData.error_description || `Token exchange failed: ${errorData.error}`;
+
+        // Include DPoP nonce in error if present (for retry with new nonce)
+        if (errorData.dpop_nonce || response.headers.get('dpop-nonce')) {
+          errorMessage += ' (dpop_nonce available for retry)';
+        }
       } catch {
         // Ignore JSON parse errors, use the status text
       }
@@ -243,7 +275,7 @@ export async function exchangeAuthorizationCode(
     // Calculate expiration timestamp
     if (tokenResponse.expires_in) {
       // We'll add expires_at as a convenience field
-      const responseWithExpires = tokenResponse as TokenResponse & { expires_at?: number };
+      const responseWithExpires = tokenResponse as TokenResponse & { expires_at?: number; dpop_nonce?: string };
       responseWithExpires.expires_at = calculateTokenExpiration(tokenResponse.expires_in);
     }
 
@@ -355,6 +387,17 @@ export interface RefreshTokenRequestOptions {
    * The token endpoint URL
    */
   tokenEndpoint?: string;
+
+  /**
+   * Optional DPoP proof JWT for DPoP-bound tokens
+   * RFC 9449: https://www.rfc-editor.org/rfc/rfc9449
+   */
+  dpopProof?: string;
+
+  /**
+   * Optional DPoP nonce from previous request
+   */
+  dpopNonce?: string;
 }
 
 /**
@@ -413,14 +456,15 @@ function buildRefreshTokenRequestBody(
  */
 export async function refreshAccessToken(
   options: RefreshTokenRequestOptions
-): Promise<TokenResponse> {
+): Promise<TokenResponse & { dpop_nonce?: string }> {
   const config = getConfig();
 
   // Build request
   const body = buildRefreshTokenRequestBody(options, config);
   const headers = buildTokenRequestHeaders(
     options.clientSecret || config.clientSecret,
-    options.clientId || config.clientId
+    options.clientId || config.clientId,
+    options.dpopProof
   );
 
   const tokenEndpoint = options.tokenEndpoint || config.issuer + '/protocol/openid-connect/token';
@@ -436,8 +480,13 @@ export async function refreshAccessToken(
     if (!response.ok) {
       let errorMessage = `Token refresh failed: ${response.status} ${response.statusText}`;
       try {
-        const errorData: TokenErrorResponse = await response.json();
+        const errorData: TokenErrorResponse & { dpop_nonce?: string } = await response.json();
         errorMessage = errorData.error_description || `Token refresh failed: ${errorData.error}`;
+
+        // Include DPoP nonce in error if present
+        if (errorData.dpop_nonce || response.headers.get('dpop-nonce')) {
+          errorMessage += ' (dpop_nonce available for retry)';
+        }
       } catch {
         // Ignore JSON parse errors
       }
@@ -448,7 +497,7 @@ export async function refreshAccessToken(
 
     // Calculate expiration timestamp
     if (tokenResponse.expires_in) {
-      const responseWithExpires = tokenResponse as TokenResponse & { expires_at?: number };
+      const responseWithExpires = tokenResponse as TokenResponse & { expires_at?: number; dpop_nonce?: string };
       responseWithExpires.expires_at = calculateTokenExpiration(tokenResponse.expires_in);
     }
 

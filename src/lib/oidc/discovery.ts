@@ -587,3 +587,72 @@ export function getBackchannelLogoutUri(baseUrl: string = ''): string {
     '';
   return `${base.replace(/\/$/, '')}/auth/backchannel-logout`;
 }
+
+// =============================================================================
+// DPoP Support Helpers (RFC 9449)
+// =============================================================================
+
+/**
+ * Checks if the provider supports DPoP (Demonstrating Proof-of-Possession).
+ *
+ * DPoP support is indicated by the presence of dpop_signing_alg_values_supported
+ * in the provider metadata.
+ *
+ * @param metadata - The provider metadata
+ * @returns true if DPoP is supported
+ *
+ * @example
+ * ```ts
+ * const provider = await discoverProvider();
+ * if (supportsDPoP(provider)) {
+ *   console.log('Provider supports DPoP');
+ * }
+ * ```
+ */
+export function supportsDPoP(metadata: OpenIDProviderMetadata): boolean {
+  return (
+    Array.isArray(metadata.dpop_signing_alg_values_supported) &&
+    metadata.dpop_signing_alg_values_supported.length > 0
+  );
+}
+
+/**
+ * Checks if the provider supports a specific DPoP signing algorithm.
+ *
+ * @param metadata - The provider metadata
+ * @param alg - The signing algorithm (e.g., 'ES256', 'RS256')
+ * @returns true if the algorithm is supported for DPoP
+ *
+ * @example
+ * ```ts
+ * const provider = await discoverProvider();
+ * if (supportsDPoPAlgorithm(provider, 'ES256')) {
+ *   console.log('Provider supports ES256 for DPoP');
+ * }
+ * ```
+ */
+export function supportsDPoPAlgorithm(
+  metadata: OpenIDProviderMetadata,
+  alg: string
+): boolean {
+  return metadata.dpop_signing_alg_values_supported?.includes(alg) ?? false;
+}
+
+/**
+ * Gets the supported DPoP signing algorithms from the provider.
+ *
+ * @param metadata - The provider metadata
+ * @returns Array of supported DPoP signing algorithms
+ *
+ * @example
+ * ```ts
+ * const provider = await discoverProvider();
+ * const algos = getDPoPSigningAlgorithms(provider);
+ * console.log('Supported DPoP algorithms:', algos);
+ * ```
+ */
+export function getDPoPSigningAlgorithms(
+  metadata: OpenIDProviderMetadata
+): string[] {
+  return metadata.dpop_signing_alg_values_supported ?? [];
+}
