@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Never add `Co-Authored-By` or any Claude/AI attribution lines to commit messages.
 
+## Code quality — mandatory before every commit
+
+After any code change, always run both checks in order and fix all issues before committing:
+
+```bash
+pnpm lint       # must exit 0 — fix every error and warning, not just errors
+pnpm build      # must succeed — fix any type errors or build failures
+```
+
+Do not commit if either command fails.
+
 ## Commands
 
 ```bash
