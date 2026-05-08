@@ -238,7 +238,8 @@ export interface DPoPMiddlewareConfig {
  * });
  * ```
  */
-export function withDPoP<T extends unknown[]>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function withDPoP<T extends any[]>(
   config: DPoPMiddlewareConfig = {}
 ) {
   return (
