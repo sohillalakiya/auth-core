@@ -252,10 +252,10 @@ export class RedisSessionRegistry implements SessionRegistryStorage {
   async getTokens(sid: string): Promise<SessionTokens | null> {
     const key = `${this.sessionKey(sid)}:tokens`;
     const data = await this.redis.hgetall(key);
-    if (!data.access_token || !data.id_token) return null;
+    if (!data.access_token) return null;
     return {
       access_token: data.access_token,
-      id_token: data.id_token,
+      id_token: data.id_token ?? '',
       refresh_token: data.refresh_token || undefined,
     };
   }

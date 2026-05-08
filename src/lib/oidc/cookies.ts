@@ -368,7 +368,8 @@ export async function getSessionCookie(): Promise<SessionData | undefined> {
       }
     }
 
-    if (!parsed.access_token || !parsed.id_token) {
+    const isOtpSession = parsed.provider === 'email-otp';
+    if (!parsed.access_token || (!isOtpSession && !parsed.id_token)) {
       return undefined;
     }
 
